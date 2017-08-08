@@ -1,7 +1,15 @@
 # include <iostream>
 # include <fstream>
 # include <string>
-#include <sys/stat.h>
+# include <sys/stat.h>
+# include "boinc_api.h"
+
+// g++ -c Square.cpp -o Square.o
+// g++ -c Generator.cpp -o Generator.o
+// g++ -c PairSearch.cpp -o PairSearch.o
+// g++ -c MovePairSearch.cpp -o MovePairSearch.o
+// g++ -c main.cpp -o main.o -I/usr/include/boinc
+// g++ -o all *.o -L/usr/lib64 -lboinc_api
 
 # include "MovePairSearch.h"
 # include "PairSearch.h"
@@ -104,47 +112,15 @@ int Compute(string wu_filename, string result_filename)
 
 int main(int argumentsCount, char* argumentsValues[])
 {
-  string wu_filename;
-  string result_filename;
+  string wu_filename = "workunit.txt";
+  string result_filename = "result.txt";
 
-  if (argumentsCount == 3)
-  {
-    wu_filename = argumentsValues[1];
-    result_filename = argumentsValues[2];
-    Compute(wu_filename, result_filename);
-  }
-  else
-  {
-    std::cout << "Please, specify WU filename and result filename." << endl << endl;
-    return -1;
-  }
+  boinc_init();
+  
+  Compute(wu_filename, result_filename);
 
-  //cout << "Press any key to exit ... " << endl;
-  //cin.get();
+  boinc_finish(0);
 
   return 0;
 }
 
-/*
-Sample of Pair search
-
-  int aMatrix[9][9] =
-  {
-    {0, 1, 2, 3, 4, 5, 6, 7, 8},
-    {4, 2, 7, 6, 8, 1, 3, 5, 0},
-    {3, 5, 1, 0, 7, 8, 4, 6, 2},
-    {6, 3, 8, 4, 1, 7, 0, 2, 5},
-    {5, 6, 0, 7, 3, 2, 8, 4, 1},
-    {7, 8, 4, 1, 5, 6, 2, 0, 3},
-    {8, 7, 6, 2, 0, 3, 5, 1, 4},
-    {1, 0, 3, 5, 2, 4, 7, 8, 6},
-    {2, 4, 5, 8, 6, 0, 1, 3, 7}
-  };
-
-  Square a(aMatrix);
-  PairSearch search;
-
-  search.Initialize("start_parameters.txt", "result.txt", "checkpoint.txt", "checkpoint_new.txt");
-  search.OnSquareGenerated(a);
-
-*/
