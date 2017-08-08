@@ -195,7 +195,7 @@ void MovePairSearch::StartMoveSearch()
 
   // Отписываемся от события нахождения очередного ДЛК
   //~__unhook(&Generator::SquareGenerated, &squareAGenerator, &MovePairSearch::OnSquareGenerated);
-  //squareAGenerator.SquareGenerated.disconnect_all_slots();
+  squareAGenerator.SquareGenerated.disconnect_all_slots();
 
   // Вывод итогов поиска
   ShowSearchTotals();
