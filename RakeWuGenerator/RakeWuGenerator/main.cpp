@@ -7,7 +7,7 @@
 
 int main()
 {
-	int workunitsCount = 10;
+	int workunitsCount = 1854;
 
 	string startFileName = "start_parameters.txt";
 	string resultFileName = "result.txt";

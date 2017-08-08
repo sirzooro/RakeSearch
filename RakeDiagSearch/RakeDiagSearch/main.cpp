@@ -9,7 +9,6 @@
 using namespace std;
 
 // Проверка существования файла
-// https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
 inline bool file_exists (const std::string& name) {
   struct stat buffer;   
   return (stat (name.c_str(), &buffer) == 0); 
@@ -27,32 +26,32 @@ int Compute(string wu_filename, string result_filename)
 
   string initStartFileName;
   string initResultFileName;
-  string initCheckpointFileName = "checkpoint.txt";
-  string initTempCheckpointFileName = "checkpoint_new.txt";
+  string initCheckpointFileName;
+  string initTempCheckpointFileName;
 
   MovePairSearch search;
 
   {
     // Проверка наличия файла задания, контрольной точки, результата
-    localWorkunit = wu_filename;   //~GetFirstFile(localWorkunitsMask);
+    localWorkunit = wu_filename; 
     localResult = result_filename; 
-    localCheckpoint = "checkpoint_test.txt";
+    localCheckpoint = "checkpoint_" + wu_filename;
 
     pathLocalWorkunit = localWorkunit;
     pathLocalResult = localResult;
     pathLocalCheckpoint = localCheckpoint;
 
     // Результат существует, удалить результат и контрольные точки
-    if (file_exists(localResult)) //~(!localResult.empty())
+    if (file_exists(localResult))
     {
       // Отправка результата и удаление файла с заданием и контрольной точкой
         // Удаление файла с заданием
         std::cout << "Remove a workunit file: " << localWorkunit << endl;
-        //**remove(pathLocalWorkunit.c_str());
+        remove(pathLocalWorkunit.c_str());
 
         // Удаление файла с контрольной точкой
         std::cout << "Remove a checkpoint file: " << localCheckpoint << endl;
-        //**remove(pathLocalCheckpoint.c_str());
+        remove(pathLocalCheckpoint.c_str());
 
         std::cout << "Result removed" << endl;
         return 0;
@@ -70,7 +69,8 @@ int Compute(string wu_filename, string result_filename)
         
         std::cout << "Start from checkpoint of workunit " << localWorkunit << endl;
 
-        search.InitializeMoveSearch(initStartFileName, initResultFileName, initCheckpointFileName, initTempCheckpointFileName);
+        search.InitializeMoveSearch(initStartFileName, initResultFileName, 
+                      initCheckpointFileName, initTempCheckpointFileName);
         search.StartMoveSearch();
       }
       else
@@ -81,15 +81,19 @@ int Compute(string wu_filename, string result_filename)
     }
 
     // Запуск вычислений с файла задания
-    if (!file_exists(localCheckpoint) && !file_exists(localResult) && file_exists(localWorkunit))
+    if (!file_exists(localCheckpoint) && !file_exists(localResult) 
+                                    && file_exists(localWorkunit))
     {
-      // Запуск вычислений с файла задания, присутствующего без файлов контрольной точки и результата
+      // Запуск вычислений с файла задания, присутствующего без файлов 
+      // контрольной точки и результата
       initStartFileName  = localWorkunit;
       initResultFileName = localResult;
-      
-      std::cout << "Start from workunit file " << localWorkunit << endl;
+      initCheckpointFileName = "checkpoint_" + localWorkunit;      
+      initTempCheckpointFileName = "checkpoint_new_" + localWorkunit;
 
-      search.InitializeMoveSearch(initStartFileName, initResultFileName, initCheckpointFileName, initTempCheckpointFileName);
+      std::cout << "Start from workunit file " << localWorkunit << endl;
+      search.InitializeMoveSearch(initStartFileName, initResultFileName, 
+                      initCheckpointFileName, initTempCheckpointFileName);
       search.StartMoveSearch();
     }
   }
@@ -112,10 +116,11 @@ int main(int argumentsCount, char* argumentsValues[])
   else
   {
     std::cout << "Please, specify WU filename and result filename." << endl << endl;
+    return -1;
   }
 
-  cout << "Press any key to exit ... " << endl;
-  cin.get();
+  //cout << "Press any key to exit ... " << endl;
+  //cin.get();
 
   return 0;
 }

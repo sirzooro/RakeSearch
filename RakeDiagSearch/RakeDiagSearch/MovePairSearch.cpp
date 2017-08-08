@@ -41,7 +41,8 @@ void MovePairSearch::Reset()
 // Очистка необходимых переменных перед очередным поиском
 void MovePairSearch::ClearBeforeNextSearch()
 {
-  // Сброс значений матриц квадратов A и B, а также матрицы использования строк при формировании квадрата B
+  // Сброс значений матриц квадратов A и B, а также матрицы использования строк 
+  // при формировании квадрата B
   for (int i = 0; i < Rank; i++)
   {
     for (int j = 0; j < Rank; j++)
@@ -65,7 +66,8 @@ void MovePairSearch::ClearBeforeNextSearch()
 
 
 // Инициализация поиска
-void MovePairSearch::InitializeMoveSearch(string start, string result, string checkpoint, string temp)
+void MovePairSearch::InitializeMoveSearch(string start, string result, 
+                                       string checkpoint, string temp)
 {
   fstream startFile;
   fstream checkpointFile;
@@ -182,19 +184,13 @@ void MovePairSearch::CreateCheckpoint()
 void MovePairSearch::StartMoveSearch()
 {
   // Подписываемся на событие нахождения очередного ДЛК
-  //~__hook(&Generator::SquareGenerated, &squareAGenerator, &MovePairSearch::OnSquareGenerated);
-  //squareAGenerator.SquareGenerated.connect(&MovePairSearch::OnSquareGenerated, this, _1);
-
-  squareAGenerator.SquareGenerated.connect(boost::bind(&MovePairSearch::OnSquareGenerated, this, _1));
+  squareAGenerator.SquareGenerated.connect(boost::bind(
+                   &MovePairSearch::OnSquareGenerated, this, _1));
  
   // Запускаем генерацию ДЛК
   squareAGenerator.Start();
 
-  //Square newSquare(squareAGenerator.getNewSquare());
-  //OnSquareGenerated(newSquare);
-
   // Отписываемся от события нахождения очередного ДЛК
-  //~__unhook(&Generator::SquareGenerated, &squareAGenerator, &MovePairSearch::OnSquareGenerated);
   squareAGenerator.SquareGenerated.disconnect_all_slots();
 
   // Вывод итогов поиска
@@ -205,7 +201,7 @@ void MovePairSearch::StartMoveSearch()
 // Обработчик события построения ДЛК, запускающий поиск к нему пары
 void MovePairSearch::OnSquareGenerated(Square newSquare)
 {
-  // Очистка перед поиском квадратов, отртогональных очередному ДЛК
+  // Очистка перед поиском квадратов, ортогональных очередному ДЛК
   ClearBeforeNextSearch();
 
   // Запоминание найденного квадрата
@@ -412,7 +408,7 @@ void MovePairSearch::MoveRows()
 void MovePairSearch::ProcessOrthoSquare()
 {
   int isDifferent = 0;      // Число отличий в строках от исходного квадрата (для отсева формирования его копии)
-  fstream resultFile;        // Поток для I/O в файл с результатами
+  ofstream resultFile;        // Поток для I/O в файл с результатами
 
   Square a(squareA);        // Квадрат A как объект
   Square b(squareB);        // Квадрат B как объект
@@ -432,7 +428,8 @@ void MovePairSearch::ProcessOrthoSquare()
   }
 
   // Обработка найденного квадрата
-  if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric && b.IsDiagonal() && b.IsLatin() && a.IsDiagonal() && b.IsLatin())
+  if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric 
+      && b.IsDiagonal() && b.IsLatin() && a.IsDiagonal() && b.IsLatin())
   {
     // Запись информации о найденном квадрате
       // Увеличение счётчика квадратов
@@ -465,13 +462,20 @@ void MovePairSearch::ProcessOrthoSquare()
 
         // Вывод информации в файл
         resultFile.open(resultFileName.c_str(), std::ios_base::app);
-        resultFile << "{" << endl;
-        resultFile << "# ------------------------" << endl;
-        resultFile << "# Detected pair for the square: " << endl;
-        resultFile << "# ------------------------" << endl;
-        resultFile << a;
-        resultFile << "# ------------------------" << endl;
-        resultFile.close();
+        if (resultFile.is_open())
+        {
+          resultFile << "{" << endl;
+          resultFile << "# ------------------------" << endl;
+          resultFile << "# Detected pair for the square: " << endl;
+          resultFile << "# ------------------------" << endl;
+          resultFile << a;
+          resultFile << "# ------------------------" << endl;
+          resultFile.close();
+        }
+        else
+        {
+          std::cout << "Error opening file!";
+        }
       }
 
       // Вывод информации о найденной паре
@@ -480,8 +484,16 @@ void MovePairSearch::ProcessOrthoSquare()
 
         // Вывод информации в файл
         resultFile.open(resultFileName.c_str(), std::ios_base::app);
-        resultFile << b << endl;
-        resultFile.close();
+        if (resultFile.is_open())
+        { 
+          resultFile << b << endl;
+          resultFile.close();
+        }
+        else
+        {
+          std::cout << "Error opening file!";
+        }
+
   }
 }
 
@@ -491,7 +503,7 @@ void MovePairSearch::CheckMutualOrthogonality()
 {
   int orthoMetric = Rank*Rank;
   int maxSquareId;
-  fstream resultFile;
+  ofstream resultFile;
 
   // Определение верхней границы обрабатываемых квадратов
   if (pairsCount < OrhoSquaresCacheSize)
@@ -505,6 +517,7 @@ void MovePairSearch::CheckMutualOrthogonality()
 
   // Открываем файл с результатами
   resultFile.open(resultFileName.c_str(), std::ios_base::app);
+  if (!resultFile.is_open()) { cout << "Error opening file!"; return; }
 
   // Проверка взаимной ортогональности набора квадратов
   for (int i = 0; i <= maxSquareId; i++)
@@ -536,7 +549,7 @@ void MovePairSearch::CheckMutualOrthogonality()
 
 void MovePairSearch::ShowSearchTotals()
 {
-  fstream resultFile;
+  ofstream resultFile;
 
   // Вывод итогов в консоль
   cout << "# ------------------------" << endl;
@@ -546,10 +559,14 @@ void MovePairSearch::ShowSearchTotals()
 
   // Вывод итогов в файл
   resultFile.open(resultFileName.c_str(), std::ios_base::app);
-  resultFile << "# ------------------------" << endl;
-  resultFile << "# Total pairs found: " << totalPairsCount << endl;
-  resultFile << "# Total squares with pairs: " << totalSquaresWithPairs << endl;
-  resultFile << "# Processes " << totalProcessedSquaresLarge << " milliards " << totalProcessedSquaresSmall << " squares" << endl;
-  resultFile << "# ------------------------" << endl;
-  resultFile.close();
+  if (resultFile.is_open())
+  {
+    resultFile << "# ------------------------" << endl;
+    resultFile << "# Total pairs found: " << totalPairsCount << endl;
+    resultFile << "# Total squares with pairs: " << totalSquaresWithPairs << endl;
+    resultFile << "# Processes " << totalProcessedSquaresLarge << " milliards " << totalProcessedSquaresSmall << " squares" << endl;
+    resultFile << "# ------------------------" << endl;
+    resultFile.close();
+  }
+  else cout << "Error opening file!" << endl;
 }

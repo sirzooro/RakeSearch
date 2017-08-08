@@ -233,7 +233,8 @@ void PairSearch::OnSquareGenerated(Square newSquare)
 void PairSearch::StartPairSearch()
 {
 	// Подписываемся на событие генерации нового ДЛК
-	//~__hook(&Generator::SquareGenerated, &squareAGenerator, &PairSearch::OnSquareGenerated);
+        squareAGenerator.SquareGenerated.connect(boost::bind(
+                   &PairSearch::OnSquareGenerated, this, _1));
 
 	// Заканчиваем обработку текущего квадрата
 	if (isStartFromCheckpoint == Yes)
@@ -245,7 +246,7 @@ void PairSearch::StartPairSearch()
 	squareAGenerator.Start();
 
 	// Отписываемся от события генерации нового ДЛК
-	//~__unhook(&Generator::SquareGenerated, &squareAGenerator, &PairSearch::OnSquareGenerated);
+        squareAGenerator.SquareGenerated.disconnect_all_slots();
 
 	// Вывод итогов поиска пар
 	PrintSearchTotals();
@@ -255,7 +256,7 @@ void PairSearch::StartPairSearch()
 // Обработка нахождения пары к сгенерированному ДЛК
 void PairSearch::ProcessPairSquare()
 {
-	fstream resultFile;		// Поток для I/O в файл с результатами
+	ofstream resultFile;		// Поток для I/O в файл с результатами
 
 	// Учитываем найденную пару
 	pairsCount++;
@@ -303,7 +304,7 @@ void PairSearch::ProcessPairSquare()
 // Вывод информации об итогах поиска квадратов, ортогональных к заданному ДЛК
 void PairSearch::PrintSearchFooter()
 {
-	fstream resultFile;
+	ofstream resultFile;
 
 	// Вывод итогов в консоль
 	cout << "# ------------------------" << endl;
@@ -322,7 +323,7 @@ void PairSearch::PrintSearchFooter()
 // Вывод информации об итогах всего поиска в целом
 void PairSearch::PrintSearchTotals()
 {
-	fstream resultFile;
+	ofstream resultFile;
 
 	// Вывод итогов в консоль
 	cout << "# ------------------------" << endl;
