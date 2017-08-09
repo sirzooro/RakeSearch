@@ -2,14 +2,7 @@
 # include <fstream>
 # include <string>
 # include <sys/stat.h>
-//# include "boinc_api.h"
-
-// g++ -c Square.cpp -o Square.o
-// g++ -c Generator.cpp -o Generator.o
-// g++ -c PairSearch.cpp -o PairSearch.o
-// g++ -c MovePairSearch.cpp -o MovePairSearch.o
-// g++ -c main.cpp -o main.o -I/usr/include/boinc
-// g++ -o all *.o -L/usr/lib64 -lboinc_api
+# include "boinc_api.h"
 
 # include "MovePairSearch.h"
 # include "PairSearch.h"
@@ -114,12 +107,22 @@ int main(int argumentsCount, char* argumentsValues[])
 {
   string wu_filename = "workunit.txt";
   string result_filename = "result.txt";
+  string resolved_in_name;
+  string resolved_out_name;
 
-  //boinc_init();
+  int retval;
+
+  boinc_init();
   
-  Compute(wu_filename, result_filename);
+  retval = boinc_resolve_filename_s(wu_filename.c_str(), resolved_in_name);
+  if (retval) { cout << "can't resolve IN filename!" << endl; boinc_finish(-1); }
 
-  //boinc_finish(0);
+  retval = boinc_resolve_filename_s(result_filename.c_str(), resolved_out_name);
+  if (retval) { cout << "can't resolve OUT filename" << endl; boinc_finish(-1); }
+
+  Compute(resolved_in_name, resolved_out_name);
+
+  boinc_finish(0);
 
   return 0;
 }
