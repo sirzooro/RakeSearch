@@ -1,0 +1,13 @@
+git clone https://github.com/BOINC/boinc boinc
+
+==
+
+./_autosetup
+./configure --disable-server --disable-client --disable-manager --prefix=/home/natalia/work/Conferences/2017_FAST/MSquares/boinc_install
+make
+make install
+
+==
+
+set BOINC_DIR and use Makefile
+
