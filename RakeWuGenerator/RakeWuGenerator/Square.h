@@ -10,7 +10,7 @@ using namespace std;
 class Square
 {
 public:
-  static const int Rank = 8;          // Ранг квадрата
+  static const int Rank = 9;          // Ранг квадрата
   static const int Empty = -1;        // Пустое, не заданное значение
 
   static int OrthoDegree(Square a, Square b);  // Степень ортогональности квадратов a и b

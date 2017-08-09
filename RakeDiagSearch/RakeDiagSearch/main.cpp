@@ -2,7 +2,7 @@
 # include <fstream>
 # include <string>
 # include <sys/stat.h>
-# include "boinc_api.h"
+//# include "boinc_api.h"
 
 // g++ -c Square.cpp -o Square.o
 // g++ -c Generator.cpp -o Generator.o
@@ -115,11 +115,11 @@ int main(int argumentsCount, char* argumentsValues[])
   string wu_filename = "workunit.txt";
   string result_filename = "result.txt";
 
-  boinc_init();
+  //boinc_init();
   
   Compute(wu_filename, result_filename);
 
-  boinc_finish(0);
+  //boinc_finish(0);
 
   return 0;
 }
