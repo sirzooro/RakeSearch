@@ -19,8 +19,8 @@ clean: distclean
 distclean:
 	rm -f $(PROGS) *.o
 
-main: main.o Square.o Generator.o MovePairSearch.o PairSearch.o $(BOINC_LIB_DIR)/libboinc.a $(BOINC_API_DIR)/libboinc_api.a
-	g++ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -o main main.o Square.o Generator.o MovePairSearch.o PairSearch.o -pthread -lboinc_api -lboinc
+main: main.o Square.o Generator.o MovePairSearch.o $(BOINC_LIB_DIR)/libboinc.a $(BOINC_API_DIR)/libboinc_api.a
+	g++ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -o main main.o Square.o Generator.o MovePairSearch.o -pthread -lboinc_api -lboinc
 
 Square.o: Square.cpp
 	g++ -c Square.cpp
@@ -31,5 +31,3 @@ Generator.o: Generator.cpp
 MovePairSearch.o: MovePairSearch.cpp
 	g++ -c MovePairSearch.cpp
 
-PairSearch.o: PairSearch.cpp
-	g++ -c PairSearch.cpp

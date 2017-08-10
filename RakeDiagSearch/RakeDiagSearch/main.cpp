@@ -5,7 +5,6 @@
 # include "boinc_api.h"
 
 # include "MovePairSearch.h"
-# include "PairSearch.h"
 
 using namespace std;
 
@@ -107,23 +106,34 @@ int main(int argumentsCount, char* argumentsValues[])
 {
   string wu_filename = "workunit.txt";
   string result_filename = "result.txt";
-  string resolved_in_name;
-  string resolved_out_name;
+  string resolved_in_name;  // Переменные для работы с логическими
+  string resolved_out_name; // и физическими именами файлов в BOINC
 
   int retval;
 
-  boinc_init();
+  boinc_init(); // Инициализация BOINC API для однопоточного приложения
   
+  // Преобразовать логическое имя файла в физическое и открыть его
   retval = boinc_resolve_filename_s(wu_filename.c_str(), resolved_in_name);
-  if (retval) { cout << "can't resolve IN filename!" << endl; boinc_finish(-1); }
+  if (retval) { cout << "can't resolve IN filename!" << endl; boinc_finish(-1); return 0;}
 
   retval = boinc_resolve_filename_s(result_filename.c_str(), resolved_out_name);
-  if (retval) { cout << "can't resolve OUT filename" << endl; boinc_finish(-1); }
+  if (retval) { cout << "can't resolve OUT filename" << endl; boinc_finish(-1); return 0;}
 
+  boinc_fraction_done(0.0); // Сообщить клиенту BOINC о доле выполнения задания
+
+  // Запустить расчет
   Compute(resolved_in_name, resolved_out_name);
 
-  boinc_finish(0);
+  boinc_fraction_done(1.0); // Сообщить клиенту BOINC о доле выполнения задания
 
+  boinc_finish(0); // Сообщить клиенту BOINC о статусе завершения расчета
+                   // (не делает return)
+                   // Если нужно вывести сообщение пользователю, используем функцию
+                   // boinc_finish_message(int status, const char* msg, bool is_notice); 
+                   // If is_notice is true, the message will be shown as a notice 
+                   // in the GUI (works with 7.5+ clients; for others, no message 
+                   //  will be shown). 
   return 0;
 }
 
