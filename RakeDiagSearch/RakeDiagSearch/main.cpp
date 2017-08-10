@@ -112,8 +112,11 @@ int main(int argumentsCount, char* argumentsValues[])
   int retval;
 
   boinc_init(); // Инициализация BOINC API для однопоточного приложения
+
+  boinc_set_min_checkpoint_period(600); // Минимальное число секунд между записью контрольных точек
   
-  // Преобразовать логическое имя файла в физическое и открыть его
+  // Преобразовать логическое имя файла в физическое.
+  // Мы делаем это на верхнем уровне, передавая дальше уже преобразованные имена.
   retval = boinc_resolve_filename_s(wu_filename.c_str(), resolved_in_name);
   if (retval) { cout << "can't resolve IN filename!" << endl; boinc_finish(-1); return 0;}
 

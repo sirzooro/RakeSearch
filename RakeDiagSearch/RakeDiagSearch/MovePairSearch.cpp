@@ -1,6 +1,7 @@
 // Поиск пар диагональных латинских квадратов методом перетасовки строк
 
 # include "MovePairSearch.h"
+# include "boinc_api.h"
 
 // Конструктор по умолчанию
 MovePairSearch::MovePairSearch()
@@ -233,7 +234,10 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   // Фиксация информации о ходе обработки
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
-    CreateCheckpoint();
+    if (boinc_time_to_checkpoint()) {
+      CreateCheckpoint();
+      boinc_checkpoint_completed();
+    }
 
     cout << "# ------------------------" << endl;
     cout << "# Processed " << totalProcessedSquaresLarge << " milliards and " << totalProcessedSquaresSmall << " squares." << endl;
