@@ -22,9 +22,9 @@ public:
   void StartMoveSearch();        // Запуск поиска ортогональных квадратов методом перестановки строк
   void OnSquareGenerated(Square newSquare);  // Обработчик события построения ДЛК, запускающий поиск к нему пары
 
-private:
+private:                              
   static const int CheckpointInterval = 100000;  // Интервал создания контрольных точек
-  static const int OrhoSquaresCacheSize = 32;    // Размер кэша для хранения квадратов, ортогональных обрабатываемому
+  static const int OrhoSquaresCacheSize = 32;  // Размер кэша для хранения квадратов, ортогональных обрабатываемому
 
   void MoveRows();                  // Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
   void ProcessOrthoSquare();        // Обработка найденного ортогонального квадрата
@@ -59,7 +59,7 @@ private:
 
   string moveSearchGlobalHeader;    // Заголовок, после которого в файле идут данные о состоянии поиска методом перетасовки строк
   string moveSearchComponentHeader; // Заголовок, после которого в файле идут данные о состоянии компоненты перетасовки строк
-  static const bool isDebug = false; // Флаг вывода отладочной информации
+  static const bool isDebug = true; // Флаг вывода отладочной информации
 };
 
 # endif

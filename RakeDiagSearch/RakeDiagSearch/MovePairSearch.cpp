@@ -9,7 +9,6 @@ MovePairSearch::MovePairSearch()
   Reset();
 }
 
-
 // Сброс настроек поиска
 void MovePairSearch::Reset()
 {
@@ -28,7 +27,7 @@ void MovePairSearch::Reset()
   startParametersFileName = "start_parameters.txt";
   resultFileName = "result.txt";
   checkpointFileName = "checkpoint.txt";
-  tempCheckpointFileName = "checkpoint_new.txt";
+  tempCheckpointFileName = "tmp_checkpoint.txt";
 
   // Задание константы - заголовка в файле параметров или контрольной точке
   moveSearchGlobalHeader = "# Move search of pairs OLDS status";
@@ -168,7 +167,7 @@ void MovePairSearch::Write(ostream& os)
 // Создание контрольной точки
 void MovePairSearch::CreateCheckpoint()
 {
-  fstream checkpointFile;
+  ofstream checkpointFile;
 
   checkpointFile.open(tempCheckpointFileName.c_str(), std::ios_base::out);
   if (checkpointFile.is_open())
@@ -178,6 +177,8 @@ void MovePairSearch::CreateCheckpoint()
     remove(checkpointFileName.c_str());
     rename(tempCheckpointFileName.c_str(), checkpointFileName.c_str());
   }
+  else
+    cerr << "Error opening checkpoint file!" << endl;
 }
 
 
@@ -228,7 +229,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
 
   // Обновить прогресс выполнения для клиента BOINC
   double fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/5000000.0;
-  boinc_fraction_done(fraction_done);
+  boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
 
   if (totalProcessedSquaresSmall > 0 && totalProcessedSquaresSmall % 1000000000 == 0)
   {
@@ -244,7 +245,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     if (boinc_time_to_checkpoint()) {
       CreateCheckpoint();
       boinc_checkpoint_completed(); // BOINC знает, что контрольная точка записана
-    }
+    } 
 
     if(isDebug)
     {
@@ -489,7 +490,7 @@ void MovePairSearch::ProcessOrthoSquare()
         }
         else
         {
-          std::cout << "Error opening file!";
+          std::cerr << "Error opening file!";
         }
       }
 
@@ -509,7 +510,7 @@ void MovePairSearch::ProcessOrthoSquare()
         }
         else
         {
-          std::cout << "Error opening file!";
+          std::cerr << "Error opening file!";
         }
 
   }
@@ -589,5 +590,5 @@ void MovePairSearch::ShowSearchTotals()
     resultFile << "# ------------------------" << endl;
     resultFile.close();
   }
-  else cout << "Error opening file!" << endl;
+  else cerr << "Error opening file!" << endl;
 }
