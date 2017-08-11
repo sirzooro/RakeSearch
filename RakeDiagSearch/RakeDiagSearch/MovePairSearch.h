@@ -49,16 +49,17 @@ private:
 
   Square orthoSquares[OrhoSquaresCacheSize];    // Кэш для хранения квадратов, ортогональных обрабатываемому
 
-  string startParametersFileName;          // Название файла с параметрами запуска расчёта
-  string resultFileName;              // Название файла с результатами
-  string checkpointFileName;            // Название файла контрольной точки
-  string tempCheckpointFileName;          // Временное название файла новой контрольной точки
+  string startParametersFileName;   // Название файла с параметрами запуска расчёта
+  string resultFileName;            // Название файла с результатами
+  string checkpointFileName;        // Название файла контрольной точки
+  string tempCheckpointFileName;    // Временное название файла новой контрольной точки
 
   int isInitialized;                // Флаг инициализированности поиска
-  int isStartFromCheckpoint;            // Флаг запуска с контрольной точки
+  int isStartFromCheckpoint;        // Флаг запуска с контрольной точки
 
-  string moveSearchGlobalHeader;          // Заголовок, после которого в файле идут данные о состоянии поиска методом перетасовки строк
-  string moveSearchComponentHeader;        // Заголовок, после которого в файле идут данные о состоянии компоненты перетасовки строк
+  string moveSearchGlobalHeader;    // Заголовок, после которого в файле идут данные о состоянии поиска методом перетасовки строк
+  string moveSearchComponentHeader; // Заголовок, после которого в файле идут данные о состоянии компоненты перетасовки строк
+  static const bool isDebug = false; // Флаг вывода отладочной информации
 };
 
 # endif

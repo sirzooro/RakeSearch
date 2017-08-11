@@ -225,6 +225,11 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
 
   // Собирание статистики по обработанным квадратам
   totalProcessedSquaresSmall++;
+
+  // Обновить прогресс выполнения для клиента BOINC
+  double fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/5000000.0;
+  boinc_fraction_done(fraction_done);
+
   if (totalProcessedSquaresSmall > 0 && totalProcessedSquaresSmall % 1000000000 == 0)
   {
     totalProcessedSquaresLarge++;
@@ -234,20 +239,24 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   // Фиксация информации о ходе обработки
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
+    // Проверка, может ли клиент BOINC создать контрольную точку,
+    // и если может, то запустить функцию её записи
     if (boinc_time_to_checkpoint()) {
       CreateCheckpoint();
-      boinc_checkpoint_completed();
+      boinc_checkpoint_completed(); // BOINC знает, что контрольная точка записана
     }
 
-    cout << "# ------------------------" << endl;
-    cout << "# Processed " << totalProcessedSquaresLarge << " milliards and " << totalProcessedSquaresSmall << " squares." << endl;
-    cout << "# Last processed square:" << endl;
-    cout << endl;
-    cout << newSquare;
-    cout << "# ------------------------" << endl;
+    if(isDebug)
+    {
+      cout << "# ------------------------" << endl;
+      cout << "# Processed " << totalProcessedSquaresLarge << " milliards and " << totalProcessedSquaresSmall << " squares." << endl;
+      cout << "# Last processed square:" << endl;
+      cout << endl;
+      cout << newSquare;
+      cout << "# ------------------------" << endl;
+    }
   }
 }
-
 
 // Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
 void MovePairSearch::MoveRows()
@@ -456,14 +465,16 @@ void MovePairSearch::ProcessOrthoSquare()
       // Вывод заголовка
       if (pairsCount == 1)
       {
-        // Вывод информации о первом квадрате пары в виде заголовка
-        cout << "{" << endl;
-        cout << "# ------------------------" << endl;
-        cout << "# Detected pair for the square: " << endl;
-        cout << "# ------------------------" << endl;
-        cout << a;
-        cout << "# ------------------------" << endl;
-
+        if(isDebug)
+        {
+          // Вывод информации о первом квадрате пары в виде заголовка
+          cout << "{" << endl;
+          cout << "# ------------------------" << endl;
+          cout << "# Detected pair for the square: " << endl;
+          cout << "# ------------------------" << endl;
+          cout << a;
+          cout << "# ------------------------" << endl;
+        }
         // Вывод информации в файл
         resultFile.open(resultFileName.c_str(), std::ios_base::app);
         if (resultFile.is_open())
@@ -483,8 +494,11 @@ void MovePairSearch::ProcessOrthoSquare()
       }
 
       // Вывод информации о найденной паре
-        // Вывод информации в консоль
-        cout << b << endl;
+        if(isDebug)
+        {
+          // Вывод информации в консоль
+          cout << b << endl;
+        }
 
         // Вывод информации в файл
         resultFile.open(resultFileName.c_str(), std::ios_base::app);
@@ -530,20 +544,20 @@ void MovePairSearch::CheckMutualOrthogonality()
     {
       if (Square::OrthoDegree(orthoSquares[i], orthoSquares[j]) == orthoMetric)
       {
-        cout << "# Square " << i << " # " << j << endl;
+        if(isDebug) cout << "# Square " << i << " # " << j << endl;
         resultFile << "# Square " << i << " # " << j << endl;
       }
     }
   }
-  cout << endl;
+  if(isDebug) cout << endl;
   resultFile << endl;
 
   // Выводим общее число найденых ОДЛК
-  cout << "# Pairs found: " << pairsCount << endl;
+  if(isDebug) cout << "# Pairs found: " << pairsCount << endl;
   resultFile << "# Pairs found: " << pairsCount << endl;
 
   // Ставим отметку об окончании секции результатов
-  cout << "}" << endl;
+  if(isDebug) cout << "}" << endl;
   resultFile << "}" << endl;
 
   // Закрываем файл с результатами
@@ -555,11 +569,14 @@ void MovePairSearch::ShowSearchTotals()
 {
   ofstream resultFile;
 
-  // Вывод итогов в консоль
-  cout << "# ------------------------" << endl;
-  cout << "# Total pairs found: " << totalPairsCount << endl;
-  cout << "# Total squares with pairs: " << totalSquaresWithPairs << endl;
-  cout << "# ------------------------" << endl;
+  if(isDebug)
+  {
+    // Вывод итогов в консоль
+    cout << "# ------------------------" << endl;
+    cout << "# Total pairs found: " << totalPairsCount << endl;
+    cout << "# Total squares with pairs: " << totalSquaresWithPairs << endl;
+    cout << "# ------------------------" << endl;
+  }
 
   // Вывод итогов в файл
   resultFile.open(resultFileName.c_str(), std::ios_base::app);
