@@ -59,7 +59,7 @@ private:
 
   string moveSearchGlobalHeader;    // Заголовок, после которого в файле идут данные о состоянии поиска методом перетасовки строк
   string moveSearchComponentHeader; // Заголовок, после которого в файле идут данные о состоянии компоненты перетасовки строк
-  static const bool isDebug = true; // Флаг вывода отладочной информации
+  static const bool isDebug = false; // Флаг вывода отладочной информации
 };
 
 # endif
