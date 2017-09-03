@@ -1,6 +1,4 @@
-// Диагональный латинский квадрат
-
-# include "Square.h"
+#include "Square.h"
 
 using namespace std;
 
@@ -101,6 +99,16 @@ return is;
 // Чтение квадрата из потока
 void Square::Read(std::istream& is)
 {
+	char readedChar;	// "Буфер", используемый для посимволного чтения
+
+	// Считывание символа начала блока информации
+	do
+	{
+		is >> readedChar;
+	}
+	while (readedChar != HeadToken);
+
+	// Считывание матрицы квадрата
 	for (int rowId = 0; rowId < Rank; rowId++)
 	{
 		for (int columnId = 0; columnId < Rank; columnId++)
@@ -108,12 +116,23 @@ void Square::Read(std::istream& is)
 			is >> Matrix[rowId][columnId];
 		}
 	}
+
+	// Считывание символа окончания блока информации
+	do
+	{
+		is >> readedChar;
+	}
+	while (readedChar != TailToken);
 }
 
 
 // Запись квадрата в поток
 void Square::Write(std::ostream& os)
 {
+	// Запись символа начала блока информации
+	os << HeadToken << endl;
+
+	// Запись матрицы квадрата
 	for (int rowId = 0; rowId < Rank; rowId++)
 	{
 		for (int columnId = 0; columnId < Rank; columnId++)
@@ -123,7 +142,8 @@ void Square::Write(std::ostream& os)
 		os << endl;
 	}
 
-	os << endl;
+	// Запись символа окончания блока информации
+	os << TailToken << endl;
 }
 
 // Проверка квадрата на то, что он является диагональным латинским квадратом

@@ -10,14 +10,16 @@ using namespace std;
 class Square
 {
 public:
-	static const int Rank = 8;				// Ранг квадрата
+	static const int Rank = 9;					// Ранг квадрата
 	static const int Empty = -1;				// Пустое, не заданное значение
+	static const char HeadToken = '{';			// Символ начала информации о квадрате в потоке
+	static const char TailToken = '}';			// Символ окончания информации о квадрате в потоке
 
 	static int OrthoDegree(Square a, Square b);	// Степень ортогональности квадратов a и b
 
-	Square();						// Конструктор по умолчанию
+	Square();									// Конструктор по умолчанию
 	Square(int source[Rank][Rank]);				// Конструктор создания квадрата по матрице
-	Square(Square& source);					// Конструктор копирования
+	Square(Square& source);						// Конструктор копирования
 
 	int operator == (Square& value);										// Перегрузка оператора сравнения - сравниваются компоненты матрицы
 	Square& operator = (Square& value);										// Перегрузка оператора присвоения
