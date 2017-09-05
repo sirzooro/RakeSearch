@@ -228,7 +228,14 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   totalProcessedSquaresSmall++;
 
   // Обновить прогресс выполнения для клиента BOINC
-  double fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/5000000.0;
+  double fraction_done;
+  if(Rank == 8)
+    fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/5000000.0;
+  if(Rank == 9)
+    fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/275000000.0;
+  else
+    fraction_done = 1.0;
+
   boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
 
   if (totalProcessedSquaresSmall > 0 && totalProcessedSquaresSmall % 1000000000 == 0)
