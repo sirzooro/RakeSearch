@@ -799,7 +799,7 @@ void Generator::ProcessWorkunitR9()
     workunitKeyCellValue = newSquare.Matrix[workunitKeyRowId][workunitKeyColumnId];
 
     // Формируем название файла
-    wuNameBuilder << "wu_" << std::setw(6) << std::setfill('0') << workunitNumber << ".txt";
+    wuNameBuilder << "wu_" << std::setw(9) << std::setfill('0') << workunitNumber << ".txt";
     workunitFileName = wuNameBuilder.str();
 
     // Формируем файл с заданием
