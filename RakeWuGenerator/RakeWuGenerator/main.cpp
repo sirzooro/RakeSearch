@@ -7,16 +7,17 @@
 
 int main()
 {
-	int workunitsCount = 1000;
+        int workunitsCount = 1000;
 
-	string startFileName = "start_parameters.txt";
-	string resultFileName = "result.txt";
-	string checkpointFileName = "checkpoint.txt";
-	string tempCheckpointFileName = "checkpoint_new.txt";
+        string startFileName = "start_parameters.txt";
+        string resultFileName = "result.txt";
+        string checkpointFileName = "checkpoint.txt";
+        string tempCheckpointFileName = "checkpoint_new.txt";
 
- 	Generator wuGenerator;
-	wuGenerator.GenerateWorkunits(startFileName, resultFileName, checkpointFileName, tempCheckpointFileName, workunitsCount);
+        Generator wuGenerator;
+        wuGenerator.GenerateWorkunits(startFileName, resultFileName, checkpointFileName, tempCheckpointFileName, workunitsCount);
 
-	cout << "Press any key to exit ... " << endl;
-	cin.get();
+        cout << "Press any key to exit ... " << endl;
+        cin.get();
 }
+
