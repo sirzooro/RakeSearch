@@ -8,7 +8,7 @@
 
 using namespace std;
 
-static const bool isDebug = false;
+static const bool isDebug = true;
 
 // Проверка существования файла
 inline bool file_exists (const std::string& name) {
