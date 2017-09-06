@@ -8,7 +8,7 @@
 
 using namespace std;
 
-static const bool isDebug = true;
+static const bool isDebug = false;
 
 // Проверка существования файла
 inline bool file_exists (const std::string& name) {
@@ -98,7 +98,7 @@ int main(int argumentsCount, char* argumentsValues[])
 
   boinc_init(); // Инициализировать BOINC API для однопоточного приложения
   // Установить минимальное число секунд между записью контрольных точек 
-  boinc_set_min_checkpoint_period(10); 
+  boinc_set_min_checkpoint_period(60); 
   
   // Преобразовать логическое имя файла в физическое.
   // Мы делаем это на верхнем уровне, передавая дальше уже преобразованные имена.

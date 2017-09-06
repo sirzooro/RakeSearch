@@ -214,7 +214,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
       squareA[i][j] = newSquare.Matrix[i][j];
     }
   }
-  
+
   // Запуск перетасовки строк
   MoveRows();
 
@@ -227,32 +227,29 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   // Собирание статистики по обработанным квадратам
   totalProcessedSquaresSmall++;
 
-  // Обновить прогресс выполнения для клиента BOINC
-  double fraction_done;
-  if(Rank == 8)
-    fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/5000000.0;
-  if(Rank == 9)
-    fraction_done = (double)(totalProcessedSquaresLarge*1000000000+totalProcessedSquaresSmall)/275000000.0;
-  else
-    fraction_done = 1.0;
-
-  boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
-
-  if (totalProcessedSquaresSmall > 0 && totalProcessedSquaresSmall % 1000000000 == 0)
-  {
-    totalProcessedSquaresLarge++;
-    totalProcessedSquaresSmall = 0;
-  }
-
   // Фиксация информации о ходе обработки
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
+    // Обновить прогресс выполнения для клиента BOINC
+    double fraction_done;
+    if(Rank == 8)
+      fraction_done = (double)(totalProcessedSquaresSmall)/5000000.0;
+    else 
+    {
+      if(Rank == 9)
+        fraction_done = (double)(totalProcessedSquaresSmall)/275000000.0;
+      else
+        fraction_done = 1.0;
+    }
+
+    boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
+
     // Проверка, может ли клиент BOINC создать контрольную точку,
     // и если может, то запустить функцию её записи
     if (boinc_time_to_checkpoint()) {
       CreateCheckpoint();
       boinc_checkpoint_completed(); // BOINC знает, что контрольная точка записана
-    } 
+    }  
 
     if(isDebug)
     {
