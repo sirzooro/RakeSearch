@@ -239,8 +239,11 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
       if(Rank == 9)
         fraction_done = (double)(totalProcessedSquaresSmall)/275000000.0;
       else
-        fraction_done = 1.0;
+        fraction_done = 0.999999999;
     }
+
+    if(fraction_done >=1) fraction_done = (double)(totalProcessedSquaresSmall)/300000000.0;
+    if(fraction_done >=1) fraction_done = 0.999999999;
 
     boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
 
