@@ -8,22 +8,22 @@
 # include <string>
 
 # include "Square.h"
-# include "boost/signals2.hpp"
-# include "boost/bind.hpp"
 
 using namespace std;
+
+class MovePairSearch;
 
 class Generator
 {
 public:
-	// __event void SquareGenerated(Square generatedSquare); // Событие генерирования нового диагонального квадрата
-        boost::signals2::signal<void (Square)> SquareGenerated;  // Событие генерирования нового диагонального квадрата
 	Generator();					// Конструктор по умолчанию
-	Generator(Generator& source);			// Конструктор копировния
+	Generator(Generator& source);	// Конструктор копировния
 	void Start();					// Запуск генерации квадратов
 	void Reset();					// Сброс всех значений внутренних структур
 	void SetFileNames(string start, string result, string checkpoint, string temp);	// Заданием имен файлов параметров и контрольной точки
 	void Initialize(string start, string result, string checkpoint, string temp);	// Инициализация поиска
+	void Subscribe(MovePairSearch *search);		// "Подписка" на событие генерации квадрата
+	void Unsubscribe();				// Отмена подписка на событие генерации квадрата
 
  	Generator& operator = (Generator&  value);									// Оператор копирования
 	friend std::ostream& operator << (std::ostream& os, Generator& value);		// Оператор записи состояние генератора
@@ -71,6 +71,7 @@ private:
 	void ProcessSquare();					// Обработка найденного квадрата
 
 	string generatorStateHeader;			// Заголовок, после которого в файле параметров или контрольной точки идёт состояние генератора диагональных квадратов
+	MovePairSearch* subscriber;			// Объект поиска ОДЛК перестановкой строк
 };
 
 # endif

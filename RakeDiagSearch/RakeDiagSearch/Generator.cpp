@@ -1,6 +1,7 @@
 // Генератор Диагональных латинских квадратов
 
 # include "Generator.h"
+# include "MovePairSearch.h"
 
 using namespace std;
 
@@ -84,6 +85,9 @@ void Generator::Reset()
 
     // Сброс флага инициализированности
     isInitialized = No;
+
+    // Сброс указателя на подписчика в 0
+    subscriber = 0;
 }
 
 
@@ -399,6 +403,9 @@ void Generator::CopyState(Generator& source)
 
   // Копирование адресов текстовых констант
   generatorStateHeader = source.generatorStateHeader;
+
+  // Копирование ссылки на подписчика
+  subscriber = source.subscriber;
 }
 
 
@@ -603,13 +610,30 @@ void Generator::Start()
 }
 
 
+// "Подписка" на событие генерации квадрата
+void Generator::Subscribe(MovePairSearch *search)
+{
+  subscriber = search;
+}
+
+
+// Отмена подписка на событие генерации квадрата
+void Generator::Unsubscribe()
+{
+  subscriber = 0;
+}
+
+
 // Обработка квадрата
 void Generator::ProcessSquare()
 {
   // Увеличиваем счётчик найденных квадратов
   squaresCount++;
 
-  // Генерируем событие
-  this->SquareGenerated(newSquare);
+  // Сообщаем о генерации квадрата
+  if (subscriber != 0)
+  {
+    subscriber->OnSquareGenerated(newSquare);
+  }
 }
 

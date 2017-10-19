@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RakeDiagSearch", "RakeDiagSearch\RakeDiagSearch.vcxproj", "{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libboinc_staticcrt", "..\..\boinc\win_build\libboinc_staticcrt_vs2013.vcxproj", "{B00664BD-71EB-46C1-957E-CD851418D395}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libboincapi_staticcrt", "..\..\boinc\win_build\libboincapi_staticcrt_vs2013.vcxproj", "{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Debug|x64.ActiveCfg = Debug|x64
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Debug|x64.Build.0 = Debug|x64
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Debug|x86.ActiveCfg = Debug|Win32
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Debug|x86.Build.0 = Debug|Win32
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Release|x64.ActiveCfg = Release|x64
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Release|x64.Build.0 = Release|x64
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Release|x86.ActiveCfg = Release|Win32
+		{0CF48A4A-E78A-43B9-9985-4A4AB4D1D235}.Release|x86.Build.0 = Release|Win32
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Debug|x64.ActiveCfg = Debug|x64
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Debug|x64.Build.0 = Debug|x64
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Debug|x86.ActiveCfg = Debug|Win32
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Debug|x86.Build.0 = Debug|Win32
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Release|x64.ActiveCfg = Release|x64
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Release|x64.Build.0 = Release|x64
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Release|x86.ActiveCfg = Release|Win32
+		{B00664BD-71EB-46C1-957E-CD851418D395}.Release|x86.Build.0 = Release|Win32
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Debug|x64.ActiveCfg = Debug|x64
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Debug|x64.Build.0 = Debug|x64
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Debug|x86.ActiveCfg = Debug|Win32
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Debug|x86.Build.0 = Debug|Win32
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Release|x64.ActiveCfg = Release|x64
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Release|x64.Build.0 = Release|x64
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Release|x86.ActiveCfg = Release|Win32
+		{07BDA8F7-4AAF-4A3B-B96E-EA72A143C5AE}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

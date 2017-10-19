@@ -11,7 +11,8 @@ using namespace std;
 static const bool isDebug = false;
 
 // Проверка существования файла
-inline bool file_exists (const std::string& name) {
+inline bool file_exists (const std::string& name)
+{
   struct stat buffer;   
   return (stat (name.c_str(), &buffer) == 0); 
 }
@@ -31,15 +32,14 @@ int Compute(string wu_filename, string result_filename)
 
   MovePairSearch search;
 
-  {
     // Проверка наличия файла задания, контрольной точки, результата
     localWorkunit = wu_filename; 
     localResult = result_filename; 
-    localCheckpoint = "checkpoint.txt";  //checkpoint_filename;
-    localTmpCheckpoint = "tmp_checkpoint.txt";  //tmp_checkpoint_filename;
+    localCheckpoint = "checkpoint.txt";
+    localTmpCheckpoint = "tmp_checkpoint.txt";
 
     // Запуск вычислений с контрольной точки
-    if (file_exists(localCheckpoint) /*&& !file_exists(localResult)*/)
+    if (file_exists(localCheckpoint))
     {
       // Проверка наличия файла с заданием
       if (file_exists(localWorkunit))
@@ -65,8 +65,7 @@ int Compute(string wu_filename, string result_filename)
     }
 
     // Запуск вычислений с файла задания
-    if (!file_exists(localCheckpoint) /*&& !file_exists(localResult)*/ 
-                                    && file_exists(localWorkunit))
+    if (!file_exists(localCheckpoint) && file_exists(localWorkunit))
     {
       // Запуск вычислений с файла задания, 
       // присутствующего без файлов 
@@ -81,7 +80,6 @@ int Compute(string wu_filename, string result_filename)
                       initCheckpointFileName, initTmpCheckpointFileName);
       search.StartMoveSearch();
     }
-  }
 
   return 0;
 }
@@ -129,4 +127,3 @@ int main(int argumentsCount, char* argumentsValues[])
                    //  will be shown). 
   return 0;
 }
-

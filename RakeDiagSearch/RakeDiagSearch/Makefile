@@ -1,33 +1,32 @@
-
-BOINC_DIR = ../../../../boinc
+BOINC_DIR = /home/hoarfrost/Projects/BOINC
 BOINC_API_DIR = $(BOINC_DIR)/api
 BOINC_LIB_DIR = $(BOINC_DIR)/lib
 
-CXXFLAGS += -static \
+CXXFLAGS += -O2 -static \
     -I$(BOINC_DIR) \
     -I$(BOINC_LIB_DIR) \
     -I$(BOINC_API_DIR) \
     -L$(BOINC_API_DIR) \
-    -L$(BOINC_LIB_DIR)
+    -L$(BOINC_LIB_DIR) \
 
-PROGS = main 
+PROGRAM = rakesearch
 
-all: $(PROGS)
+all: $(PROGRAM)
 
-clean: distclean
+clean:
+	rm -f $(PROGRAM) *.o
 
-distclean:
-	rm -f $(PROGS) *.o
-
-main: main.o Square.o Generator.o MovePairSearch.o $(BOINC_LIB_DIR)/libboinc.a $(BOINC_API_DIR)/libboinc_api.a
-	g++ $(CXXFLAGS) $(LDFLAGS) -o main main.o Square.o Generator.o MovePairSearch.o -pthread -lboinc_api -lboinc
+$(PROGRAM): main.o Square.o Generator.o MovePairSearch.o $(BOINC_LIB_DIR)/libboinc.a $(BOINC_API_DIR)/libboinc_api.a
+	g++ $(CXXFLAGS) -o $(PROGRAM) main.o Square.o Generator.o MovePairSearch.o -pthread -lboinc_api -lboinc
 
 Square.o: Square.cpp
-	g++ -c Square.cpp
+	g++ $(CXXFLAGS) -c Square.cpp
 
 Generator.o: Generator.cpp
-	g++ -c Generator.cpp
+	g++ $(CXXFLAGS) -c Generator.cpp
 	
 MovePairSearch.o: MovePairSearch.cpp
 	g++ $(CXXFLAGS) -c MovePairSearch.cpp 
 
+main.o: main.cpp
+	g++ $(CXXFLAGS) -c main.cpp
