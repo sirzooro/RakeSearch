@@ -180,35 +180,9 @@ int Square::IsDiagonal()
 	return isDiagonal;
 }
 
-int Square::IsLatin()
-{
-    U u1, u2;
-    
-    // check rows and cols
-    for (int r = 0; r < Rank; ++r)
-    {
-        u1.s.val1 = 0;
-        u1.s.val2 = 0;
-        u2.s.val1 = 0;
-        u2.s.val2 = 0;
-        
-        for (int c = 0; c < Rank; ++c)
-        {
-            u1.cnt[Matrix[r][c]] = 1;
-            u2.cnt[Matrix[c][r]] = 1;
-        }
-        
-        if ((u1.s.val1 != 0x0101010101010101) || (u1.s.val2 != 1))
-            return 0;
-        if ((u2.s.val1 != 0x0101010101010101) || (u2.s.val2 != 1))
-            return 0;
-    }
-    
-    return 1;
-}
 
 // Проверка квадрата на то, что он является латинским квадратом
-/*int Square::IsLatin()
+int Square::IsLatin()
 {
 	int isLatin = 1;
 
@@ -247,7 +221,7 @@ int Square::IsLatin()
 	}
 
 	return isLatin;
-}*/
+}
 
 
 // Проверка ортогональности квадратов a и b

@@ -4,14 +4,13 @@
 # define Square_h
 
 # include <iostream>
-# include <stdint.h>
 
 using namespace std;
 
 class Square
 {
 public:
-	static const int Rank = 8;					// Ранг квадрата
+	static const int Rank = 9;					// Ранг квадрата
 	static const int Empty = -1;				// Пустое, не заданное значение
 	static const char HeadToken = '{';			// Символ начала информации о квадрате в потоке
 	static const char TailToken = '}';			// Символ окончания информации о квадрате в потоке
@@ -37,16 +36,6 @@ public:
 	int Matrix[Rank][Rank];							// Матрица квадрата
 
 protected:
-        union U
-        {
-            uint8_t cnt[Rank];
-            struct
-            {
-                uint64_t val1;
-                uint8_t val2;
-            } __attribute__((packed)) s;
-        } __attribute__((packed));
-
 private:
 };
 
