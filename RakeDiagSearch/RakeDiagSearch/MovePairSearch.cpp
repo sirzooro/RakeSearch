@@ -1,24 +1,24 @@
-// Поиск пар диагональных латинских квадратов методом перетасовки строк
+// Search for pairs of diagonal Latin squares by the method of rows permutation
 
 # include "MovePairSearch.h"
 # include "boinc_api.h"
 
-// Конструктор по умолчанию
+// Default constructor
 MovePairSearch::MovePairSearch()
 {
   Reset();
 }
 
-// Сброс настроек поиска
+// Reset search settings
 void MovePairSearch::Reset()
 {
-  // Сброс настроек генератора ДЛК
+  // Reset the DLS generator settings
   squareAGenerator.Reset();
 
-  // Сброс значений отдельного поиска
+  // Reset the next search settings
   ClearBeforeNextSearch();
 
-  // Сброс значений глобальных счётчиков
+  // Reset the values of global counters
   totalPairsCount = 0;
   totalSquaresWithPairs = 0;
   totalProcessedSquaresSmall = 0;
@@ -29,20 +29,20 @@ void MovePairSearch::Reset()
   checkpointFileName = "checkpoint.txt";
   tempCheckpointFileName = "tmp_checkpoint.txt";
 
-  // Задание константы - заголовка в файле параметров или контрольной точке
+  // Set the header constant for the file of parameters or checkpoint
   moveSearchGlobalHeader = "# Move search of pairs OLDS status";
   moveSearchComponentHeader = "# Move search component status";
 
-  // Сброс флага инициализации
+  // Reset the initialization flag
   isInitialized = 0;
 }
 
 
-// Очистка необходимых переменных перед очередным поиском
+// Reset the variables before the next search
 void MovePairSearch::ClearBeforeNextSearch()
 {
-  // Сброс значений матриц квадратов A и B, а также матрицы использования строк 
-  // при формировании квадрата B
+  // Reset the values of matrices of squares A and B, 
+  // also the matrix of rows usage when forming square B
   for (int i = 0; i < Rank; i++)
   {
     for (int j = 0; j < Rank; j++)
@@ -53,40 +53,41 @@ void MovePairSearch::ClearBeforeNextSearch()
     }
   }
 
-  // Сброс значений в вектрах использования строк в очередной перестановке и номеров строк, использованных для текущего квадрата
+  // Reset the values in the vectors of rows usage in the next permutation
+  // and the rows numbers used for the current square
   for (int i = 0; i < Rank; i++)
   {
     rowsUsage[i] = 1;
     currentSquareRows[i] = -1;
   }
 
-  // Сброс значения счётчиков пар найденных для заданного ДЛК
+  // Reset the counter of pairs found for the given DLS
   pairsCount = 0;
 }
 
 
-// Инициализация поиска
+// Search initialization
 void MovePairSearch::InitializeMoveSearch(string start, string result, 
                                        string checkpoint, string temp)
 {
   fstream startFile;
   fstream checkpointFile;
 
-  // Считывание названий имен файлов
+  // Read the filenames
   startParametersFileName = start;
   resultFileName = result;
   checkpointFileName = checkpoint;
   tempCheckpointFileName = temp;
 
-  // Считываем состояние генератора и поиска из файла контрольной точки или начальных значений
-    // Открытие файлов со стартовыми параметрами и файла контрольной точки
+  // Read the generator status and the search status from the checkpoint file or initial values 
+    // Open files with initial parameters and the checkpoint file
     startFile.open(startParametersFileName.c_str(), std::ios_base::in);
     checkpointFile.open(checkpointFileName.c_str(), std::ios_base::in);
 
-    // Считываение состояния
+    // Read the status
 	if (checkpointFile.is_open())
 	{
-		// Считывание состояния из файла контрольной точки
+		// Read the status from the checkpoint file
 		try
 		{
 			Read(checkpointFile);
@@ -101,27 +102,27 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
 
 	if (isStartFromCheckpoint != 1)
     {
-		// Считывание состояния из файла стартовых параметров
+		// Read the status from the initial parameters file
 		Read(startFile);
 		isStartFromCheckpoint = 0;
     }
 
-    // Закрытие файлов
+    // Close the files
     startFile.close();
     checkpointFile.close();
 }
 
 
-// Чтение состояния поиска из потока
+// Read the search status from stream
 void MovePairSearch::Read(istream& is)
 {
   string marker;
 
-  // Сброс флага инициализированности
+  // Reset the initialization flag
   isInitialized = 0;
 
-  // Считывание состояния поиска
-    // Находим маркер начала состояния
+  // Read the search status
+    // Find the start marker of the status
     do
 	{
 		std::getline(is, marker);
@@ -133,10 +134,10 @@ void MovePairSearch::Read(istream& is)
     }
     while (marker != moveSearchGlobalHeader);
     
-    // Считываем состояние генератора ДЛК
+    // Read the status of the DLS generator
     is >> squareAGenerator;
 
-    // Находим маркер компоненты перетасовки
+    // Find the marker of permutation component
 	do
 	{
 		std::getline(is, marker);
@@ -148,42 +149,42 @@ void MovePairSearch::Read(istream& is)
 	}
     while (marker != moveSearchComponentHeader);
 
-    // Считываем переменные поиска перетасовкой (по факту - переменные со статистикой)
+    // Read the search variables by permutation (actually, the variables containing statistics)
     is >> pairsCount;
     is >> totalPairsCount;
     is >> totalSquaresWithPairs;
     is >> totalProcessedSquaresLarge;
     is >> totalProcessedSquaresSmall;
 
-  // Выставление флага инициализированности
+  // Set the initialization flag
   isInitialized = 1;
 }
 
 
-// Запись состояния поиска в поток
+// Write the search status into stream
 void MovePairSearch::Write(ostream& os)
 {
-  // Запись состояния поиска
-    // Запись заголовка
+  // Write the search status
+    // Writing the header
     os << moveSearchGlobalHeader << endl;
     os << endl;
 
-    // Запись состояния генератора ДЛК
+    // Write the status of the DLS generator
     os << squareAGenerator;
     os << endl;
 
-    // Запись заголовка блока перетасовки
+    // Write the header of permutation block
     os << moveSearchComponentHeader << endl;
     os << endl;
 
-    // Запись статистических показателей
+    // Writing statistical values
     os << pairsCount << " " << totalPairsCount << " " << totalSquaresWithPairs << endl;
     os << totalProcessedSquaresLarge << " " << totalProcessedSquaresSmall << endl;
     os << endl;
 }
 
 
-// Создание контрольной точки
+// Create a checkpoint
 void MovePairSearch::CreateCheckpoint()
 {
   ofstream checkpointFile;
@@ -201,30 +202,30 @@ void MovePairSearch::CreateCheckpoint()
 }
 
 
-// Запуск поиска ортогональных квадратов методом перестановки строк
+// Start the search for orthogonal squares by the method of rows permutation
 void MovePairSearch::StartMoveSearch()
 {
-  // Подписываемся на событие нахождения очередного ДЛК
+  // Subscribe to the event of finding a DLS
   squareAGenerator.Subscribe(this); 
 
-  // Запускаем генерацию ДЛК
+  // Start DLS generation
   squareAGenerator.Start();
 
-  // Отписываемся от события нахождения очередного ДЛК
+  // Unsubscribe from the event of finding a DLS
   squareAGenerator.Unsubscribe();
 
-  // Вывод итогов поиска
+  // Output the search results
   ShowSearchTotals();
 }
 
 
-// Обработчик события построения ДЛК, запускающий поиск к нему пары
+// Event processor of DLS generation, will start the search for its pair 
 void MovePairSearch::OnSquareGenerated(Square newSquare)
 {
-  // Очистка перед поиском квадратов, ортогональных очередному ДЛК
+  // Reset before the search for orthogonal squares
   ClearBeforeNextSearch();
 
-  // Запоминание найденного квадрата
+  // Write the found square
   for (int i = 0; i < Rank; i++)
   {
     for (int j = 0; j < Rank; j++)
@@ -233,22 +234,22 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     }
   }
 
-  // Запуск перетасовки строк
+  // Start the rows permutation
   MoveRows();
 
-  // Проверка взаимной ортогональности квадратов
+  // Check the mutual orthogonality of the squares
   if (pairsCount > 0)
   {
     CheckMutualOrthogonality();
   }
 
-  // Собирание статистики по обработанным квадратам
+  // Gather statistics on the processed squares
   totalProcessedSquaresSmall++;
 
-  // Фиксация информации о ходе обработки
+  // Fix the information about status of processing 
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
-    // Обновить прогресс выполнения для клиента BOINC
+    // Update the completion progress for the BOINC client
     double fraction_done;
     if(Rank == 8)
       fraction_done = (double)(totalProcessedSquaresSmall)/5000000.0;
@@ -263,13 +264,13 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     if(fraction_done >=1) fraction_done = (double)(totalProcessedSquaresSmall)/300000000.0;
     if(fraction_done >=1) fraction_done = 0.999999999;
 
-    boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
+    boinc_fraction_done(fraction_done); // Tell the BOINC client the completion fraction
 
-    // Проверка, может ли клиент BOINC создать контрольную точку,
-    // и если может, то запустить функцию её записи
+    // Check if the BOINC client is able to create a checkpoint,
+    // and if yes, start the function of its creation
     if (boinc_time_to_checkpoint()) {
       CreateCheckpoint();
-      boinc_checkpoint_completed(); // BOINC знает, что контрольная точка записана
+      boinc_checkpoint_completed(); // BOINC client knows the checkpoint has been created
     }  
 
     if(isDebug)
@@ -284,7 +285,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   }
 }
 
-// Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
+// Permute the rows of the given DLS, trying to find ODLS for it
 void MovePairSearch::MoveRows()
 {
   int currentRowId = 1;
@@ -295,25 +296,25 @@ void MovePairSearch::MoveRows()
   int diagonalValues[Rank];
   int duplicationDetected = 0;
 
-  // Записываем первую строку квадрата A в B с целью поиска нормализованных квадратов
+  // Write the 1st row of square A into square B for the search of normalized squares
   for (int j = 0; j < Rank; j++)
   {
     squareB[0][j] = squareA[0][j];
   }
 
-  // Отмечаем задействование первой строки, т.к. она фиксированная
+  // Mark the usage of the 1st row, because it is fixed
   rowsUsage[0] = 0;
   rowsHistory[0][0] = 0;
   currentSquareRows[0] = 0;
 
   while (currentRowId > 0)
   {
-    // Подбираем строку из исходного квадрата на позицию currentRowId формируемого квадрата
+    // Select a row from the initial square for the position currentRowId of the generated square
     isRowGet = 0;
     gettingRowId = -1;
     for (int i = 0; i < Rank; i++)
     {
-      // Проверяем i-ю строку исходного квадрата
+      // Check the i-th row of the initial square
       if (rowsUsage[i] && rowsHistory[currentRowId][i])
       {
         isRowGet = 1;
@@ -323,47 +324,47 @@ void MovePairSearch::MoveRows()
       }
     }
 
-    // Обрабатываем результат поиска
+    // Process the search result
     if (isRowGet)
     {
-      // Обрабатываем нахождение новой строки
-        // Заносим в квадрат новую строку
-          // Считываем номер строки, которая сейчас стоит в квадрате
+      // Process the new found row
+        // Write the new row into the square
+          // Read the number of the row which is now in the square
           oldRowId = currentSquareRows[currentRowId];
-          // Записываем новую строку в квадрат, массив флагов использованных строк, 
-          //в историю использованных строк и массив текущих строк квадрата
-            // Записываем новую строку в квадрат
+          // Write the new row into the square, the flags array of the used rows 
+          // into the history of the used rows, and the array of the current rows
+            // Write the new row into the square
             for (int j = 0; j < Rank; j++)
             {
               squareB[currentRowId][j] = squareA[gettingRowId][j];
             }
-            // Отмечаем строку в массие используемых строк
+            // Mark the row in the array of the used rows
             rowsUsage[gettingRowId] = 0;
-            // Отмечаем строку в истории использования строки
+            // Mark the row in the history of the used rows
             rowsHistory[currentRowId][gettingRowId] = 0;
-            // Записываем строку в массив текущих строк квадрата
+            // Write the row into the array of the current rows
             currentSquareRows[currentRowId] = gettingRowId;
 
-        // Очищаем для предыдущей строки флаги использования
-          // Убираем отметку в массиве используемых строк
+        // Clear usage flags of the previous row
+          // Clear the mark in the array of the used rows
           if (oldRowId != -1)
           {
             rowsUsage[oldRowId] = 1;
           }
 
-        // Проверяем диагональность получающейся части квадрата
-          // Сбрасываем флаг сигнализирующий и дубликатах на диагоналях
+        // Check diagonality of the generated part of the square 
+          // Clear the flag signalizing about duplicates on diagonals
           duplicationDetected = 0;
-          // Проверка главной диагонали
-            // Сбрасываем флаги использованных значений
+          // Check the main diagonal
+            // Clear the flags of the used values
             for (int i = 0; i < Rank; i++)
             {
               diagonalValues[i] = 1;
             }
-            // Проверка значений главной диагонали
+            // Check the values on the main diagonal
             for (int i = 0; i <= currentRowId; i++)
             {
-              // Проверка i-го элемента главной диагонали - клетки (i, i)
+              // Check the i-th element on the main diagonal - cell (i, i)
               if (diagonalValues[squareB[i][i]])
               {
                 diagonalValues[squareB[i][i]] = 0;
@@ -374,20 +375,20 @@ void MovePairSearch::MoveRows()
                 break;
               }
             }
-          // Проверка побочной диагонали, если это имеет смысл
+          // Check the secondary diagonal if needed
           if (!duplicationDetected)
           {
-            // Проверка побочной диагонали
-              // Сбрасываем флаги использованных значений
+            // Check the secondary diagonal
+              // Clear the flags of the used values
               for (int i = 0; i < Rank; i++)
               {
                 diagonalValues[i] = 1;
               }
-              // Проверка значений побочной диагонали начиная с "её хвоста"
+              // Check the values on the secondary diagonal starting from its "tail"
               for (int i = 0; i <= currentRowId; i++)
               {
 
-                // Проверка i-го значения побочной диагонали - элемента (i, rank - 1 - i)
+                // Check the i-th value on the secondary diagonal - cell (i, rank - 1 - i)
                 if (diagonalValues[squareB[i][Rank - 1 - i]]) 
                 {
                   diagonalValues[squareB[i][Rank - 1 - i]] = 0;
@@ -400,61 +401,61 @@ void MovePairSearch::MoveRows()
               }
           }
 
-        // Обработка итогов проверки диагональности квадрата
+        // Process the results of checking the square for diagonality
         if (!duplicationDetected)
         {
-          // Делаем следующий шаг вперёд в зависимости от текущего положения
+          // Step forward depending on the current position
           if (currentRowId == Rank - 1)
           {
-            // Обрабатываем найденный квадрат
+            // Process the found square
             ProcessOrthoSquare();
           }
           else
           {
-            // Делаем шаг вперёд
+            // Step forward
             currentRowId++;
           }
         }
     }
     else
     {
-      // Обрабатываем ненахождение новой строки - делаем шаг назад, зачищая флаги задействования, 
-      // историю использования, перечень текущих строк квадрата и зачищая сам квадрат
-        // Считываем номер текущей строки
+      // Process not-founding of the new row: step backward, clear the flags of usage,
+      // the history of usage, the list of current rows and clear the square itself
+        // Read the number of the current row
         oldRowId = currentSquareRows[currentRowId];
-        // Зачищаем текущую строку в квадрате
+        // Clear the current row
         for (int j = 0; j < Rank; j++)
         {
           squareB[currentRowId][j] = -1;
         }
-        // Зачищаем текущий состав квадрата
+        // Clear the current square
         currentSquareRows[currentRowId] = -1;
-        // Зачищаем флаг возможного задействования
+        // Clear the flag of possible usage
         rowsUsage[oldRowId] = 1;
-        // Зачищаем историю работы с этой строкой
+        // Clear the history of work with this cell
         for (int i = 0; i < Rank; i++)
         {
           rowsHistory[currentRowId][i] = 1;
         }
-        // Делаем шаг назад
+        // Step backward
         currentRowId--;
     }
   }
 }
 
 
-// Обработка найденного ортогонального квадрата
+// Process the found orthogonal square
 void MovePairSearch::ProcessOrthoSquare()
 {
-  int isDifferent = 0;      // Число отличий в строках от исходного квадрата (для отсева формирования его копии)
-  ofstream resultFile;        // Поток для I/O в файл с результатами
+  int isDifferent = 0;      // The number of differences in the rows with the initial square (to avoid generating its copy)
+  ofstream resultFile;      // The stream for output into the results file
 
-  Square a(squareA);        // Квадрат A как объект
-  Square b(squareB);        // Квадрат B как объект
+  Square a(squareA);        // Square A as an object
+  Square b(squareB);        // Square B as an object
 
-  int orthoMetric = Rank*Rank;  // Значение метрики ортогональности, говорящее о том, что квадраты - полностью ортогональны
+  int orthoMetric = Rank*Rank;  // The value of orthogonality metric saying that the squares are fully orthogonal
 
-  // Проверяем его на то, что он копия исходного
+  // Check the square for being a copy of the initial one
   isDifferent = 0;
   
   for (int i = 0; i < Rank; i++)
@@ -466,34 +467,34 @@ void MovePairSearch::ProcessOrthoSquare()
     }
   }
 
-  // Обработка найденного квадрата
+  // Process the found square
   if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric 
       && b.IsDiagonal() && b.IsLatin() && a.IsDiagonal() && b.IsLatin())
   {
-    // Запись информации о найденном квадрате
-      // Увеличение счётчика квадратов
+    // Write the information about the found square
+      // Increase the squares counter
       pairsCount++;
       totalPairsCount++;
 
-      // Запоминание базового квадрата
+      // Remember the basic square
       if (pairsCount == 1)
       {
         orthoSquares[pairsCount - 1] = a;
         totalSquaresWithPairs++;
       }
 
-      // Запоминание квадрата - пары
+      // Remember the pair square
       if (pairsCount < OrhoSquaresCacheSize)
       {
         orthoSquares[pairsCount] = b;
       }
 
-      // Вывод заголовка
+      // Output the header
       if (pairsCount == 1)
       {
         if(isDebug)
         {
-          // Вывод информации о первом квадрате пары в виде заголовка
+          // Output the information about the 1st square in a pair as a header 
           cout << "{" << endl;
           cout << "# ------------------------" << endl;
           cout << "# Detected pair for the square: " << endl;
@@ -501,7 +502,7 @@ void MovePairSearch::ProcessOrthoSquare()
           cout << a;
           cout << "# ------------------------" << endl;
         }
-        // Вывод информации в файл
+        // Write the information into file
         resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         {
@@ -519,14 +520,14 @@ void MovePairSearch::ProcessOrthoSquare()
         }
       }
 
-      // Вывод информации о найденной паре
+      // Output the information about the found pair
         if(isDebug)
         {
-          // Вывод информации в консоль
+          // Output the information into the console
           cout << b << endl;
         }
 
-        // Вывод информации в файл
+        // Output the information into the file
         resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         { 
@@ -542,14 +543,14 @@ void MovePairSearch::ProcessOrthoSquare()
 }
 
 
-// Проверка взаимной ортогональности набора квадратов, найденного в текущем поиске
+// Check the mutual orthogonality of a set of squares found in the current search
 void MovePairSearch::CheckMutualOrthogonality()
 {
   int orthoMetric = Rank*Rank;
   int maxSquareId;
   ofstream resultFile;
 
-  // Определение верхней границы обрабатываемых квадратов
+  // Detect the upper bound of the squares to process
   if (pairsCount < OrhoSquaresCacheSize)
   {
     maxSquareId = pairsCount;
@@ -559,11 +560,11 @@ void MovePairSearch::CheckMutualOrthogonality()
     maxSquareId = OrhoSquaresCacheSize - 1;
   }
 
-  // Открываем файл с результатами
+  // Open the file with results
   resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
   if (!resultFile.is_open()) { cout << "Error opening file!"; return; }
 
-  // Проверка взаимной ортогональности набора квадратов
+  // Check the mutual orthogonality of a set of squares 
   for (int i = 0; i <= maxSquareId; i++)
   {
     for (int j = i + 1; j <= maxSquareId; j++)
@@ -578,15 +579,15 @@ void MovePairSearch::CheckMutualOrthogonality()
   if(isDebug) cout << endl;
   resultFile << endl;
 
-  // Выводим общее число найденых ОДЛК
+  // Write the total number of the found DLS pairs
   if(isDebug) cout << "# Pairs found: " << pairsCount << endl;
   resultFile << "# Pairs found: " << pairsCount << endl;
 
-  // Ставим отметку об окончании секции результатов
+  // Set the end marker of the results section
   if(isDebug) cout << "}" << endl;
   resultFile << "}" << endl;
 
-  // Закрываем файл с результатами
+  // Close the file with results
   resultFile.close();
 }
 
@@ -597,14 +598,14 @@ void MovePairSearch::ShowSearchTotals()
 
   if(isDebug)
   {
-    // Вывод итогов в консоль
+    // Write the results into the console
     cout << "# ------------------------" << endl;
     cout << "# Total pairs found: " << totalPairsCount << endl;
     cout << "# Total squares with pairs: " << totalSquaresWithPairs << endl;
     cout << "# ------------------------" << endl;
   }
 
-  // Вывод итогов в файл
+  // Write the results into the file
   resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
   if (resultFile.is_open())
   {
