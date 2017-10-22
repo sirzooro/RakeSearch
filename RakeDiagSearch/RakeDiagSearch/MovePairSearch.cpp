@@ -591,7 +591,7 @@ void MovePairSearch::CheckMutualOrthogonality()
   resultFile.close();
 }
 
-
+// Display the total results of the search
 void MovePairSearch::ShowSearchTotals()
 {
   ofstream resultFile;
