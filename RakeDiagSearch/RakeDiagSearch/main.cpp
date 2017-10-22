@@ -10,14 +10,14 @@ using namespace std;
 
 static const bool isDebug = false;
 
-// Проверка существования файла
+// Checking the file for existence
 inline bool file_exists (const std::string& name)
 {
   struct stat buffer;   
   return (stat (name.c_str(), &buffer) == 0); 
 }
 
-// Выполнение вычислений
+// Computing
 int Compute(string wu_filename, string result_filename)
 {
   string localWorkunit;
@@ -32,19 +32,19 @@ int Compute(string wu_filename, string result_filename)
 
   MovePairSearch search;
 
-    // Проверка наличия файла задания, контрольной точки, результата
+    // Checking the workunit file, the checkpoint file, the result file for existence
     localWorkunit = wu_filename; 
     localResult = result_filename; 
     localCheckpoint = "checkpoint.txt";
     localTmpCheckpoint = "tmp_checkpoint.txt";
 
-    // Запуск вычислений с контрольной точки
+    // Starting computing from a checkpoint
     if (file_exists(localCheckpoint))
     {
-      // Проверка наличия файла с заданием
+      // Checking the workunit file for existence
       if (file_exists(localWorkunit))
       {
-        // Запускаем расчёт
+        // Starting computing
         initStartFileName  = localWorkunit;
         initResultFileName = localResult;
         initCheckpointFileName = localCheckpoint;       
@@ -64,12 +64,12 @@ int Compute(string wu_filename, string result_filename)
       }
     }
 
-    // Запуск вычислений с файла задания
+    // Starting computing from a workunit file
     if (!file_exists(localCheckpoint) && file_exists(localWorkunit))
     {
-      // Запуск вычислений с файла задания, 
-      // присутствующего без файлов 
-      // контрольной точки и результата
+      // Starting computing from a workunit file, 
+      // present without the files
+      // of a checkpoint and a result
       initStartFileName  = localWorkunit;
       initResultFileName = localResult;
       initCheckpointFileName = localCheckpoint;      
@@ -89,17 +89,17 @@ int main(int argumentsCount, char* argumentsValues[])
 {
   string wu_filename = "workunit.txt";
   string result_filename = "result.txt";
-  string resolved_in_name;  // Переменные для работы с логическими
-  string resolved_out_name; // и физическими именами файлов в BOINC
+  string resolved_in_name;  // Variables for working with logical
+  string resolved_out_name; // and physical filenames in BOINC
 
   int retval;
 
-  boinc_init(); // Инициализировать BOINC API для однопоточного приложения
-  // Установить минимальное число секунд между записью контрольных точек 
+  boinc_init(); // Initialize BOINC API for single-threaded application 
+  // Set minimal number of seconds between writing checkpoints
   boinc_set_min_checkpoint_period(60); 
   
-  // Преобразовать логическое имя файла в физическое.
-  // Мы делаем это на верхнем уровне, передавая дальше уже преобразованные имена.
+  // Convert logical filename into physical filename.
+  // We do it at the high level, passing already resolved filenames further.
   retval = boinc_resolve_filename_s(wu_filename.c_str(), resolved_in_name);
   if (retval) 
   { 
@@ -113,17 +113,16 @@ int main(int argumentsCount, char* argumentsValues[])
     boinc_finish(retval); return 0;
   }
 
-  boinc_fraction_done(0.0); // Сообщить клиенту BOINC о доле выполнения задания
-  // Запустить расчет
-  retval = Compute(resolved_in_name, resolved_out_name);
-  boinc_fraction_done(1.0); // Сообщить клиенту BOINC о доле выполнения задания
+  boinc_fraction_done(0.0); // Tell the BOINC client the fraction of workunit completion
+    retval = Compute(resolved_in_name, resolved_out_name); // Launch computing
+  boinc_fraction_done(1.0); // Tell the BOINC client the fraction of workunit completion
 
-  // Сообщить клиенту BOINC о статусе завершения расчета (не делает return)
+  // Tell the BOINC client the status of workunit completion (does not return)
   boinc_finish(retval); 
-                   // Если нужно вывести сообщение пользователю, используем функцию
+                   // In case we need to show a message to the user, use function
                    // boinc_finish_message(int status, const char* msg, bool is_notice); 
                    // If is_notice is true, the message will be shown as a notice 
                    // in the GUI (works with 7.5+ clients; for others, no message 
-                   //  will be shown). 
+                   // will be shown). 
   return 0;
 }
