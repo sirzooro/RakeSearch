@@ -1,4 +1,4 @@
-BOINC_DIR = ../../../../boinc
+BOINC_DIR = ../../../../boinc-src
 BOINC_API_DIR = $(BOINC_DIR)/api
 BOINC_LIB_DIR = $(BOINC_DIR)/lib
 

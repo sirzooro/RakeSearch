@@ -1,4 +1,4 @@
-// Диагональный латинский квадрат
+// Diagonal Latin square
 
 # if !defined Square_h
 # define Square_h
@@ -10,30 +10,34 @@ using namespace std;
 class Square
 {
 public:
-	static const int Rank = 9;					// Ранг квадрата
-	static const int Empty = -1;				// Пустое, не заданное значение
-	static const char HeadToken = '{';			// Символ начала информации о квадрате в потоке
-	static const char TailToken = '}';			// Символ окончания информации о квадрате в потоке
+	static const int Rank = 9;			// Rank of the square
+	static const int Empty = -1;			// Empty value
+	static const char HeadToken = '{';		// Start token for the data about the square in stream
+	static const char TailToken = '}';		// End token for the data about the square in stream
 
-	static int OrthoDegree(Square a, Square b);	// Степень ортогональности квадратов a и b
+	static int OrthoDegree(Square a, Square b);	// Orthogonality degree for squares a and b
 
-	Square();									// Конструктор по умолчанию
-	Square(int source[Rank][Rank]);				// Конструктор создания квадрата по матрице
-	Square(Square& source);						// Конструктор копирования
+	Square();					// Default constructor
+	Square(int source[Rank][Rank]);			// Matrix constructor
+	Square(Square& source);				// Copy constructor
 
-	int operator == (Square& value);										// Перегрузка оператора сравнения - сравниваются компоненты матрицы
-	Square& operator = (Square& value);										// Перегрузка оператора присвоения
-	friend std::ostream& operator << (std::ostream& os, Square& value);		// Перегрузка оператора вывода данных квадрата
-	friend std::istream& operator >> (std::istream& is, Square& value);		// Перегрузка оператора считывания данных квадрата
+	int operator == (Square& value);
+		// Overloading the comparison operator: the matrix components are being compared
+	Square& operator = (Square& value);
+		// Overloading the assignment operator
+	friend std::ostream& operator << (std::ostream& os, Square& value);
+		// Overloading the square data output operator
+	friend std::istream& operator >> (std::istream& is, Square& value);
+		// Overloading the square data input operator
 
-	int IsDiagonal();								// Проверка квадрата на то, что он является диагональным латинским квадратом
-	int IsLatin();									// Проверка квадрата на то, что он является латинским квадратом
-	void Initialize(int source[Rank][Rank]);		// Инициализация компонентов квадрата
-	void Reset();									// Сброс всех значеий перемененных
-	void Read(std::istream& is);					// Чтение квадрата из потока
-	void Write(std::ostream& os);					// Запись квадрата в поток
+	int IsDiagonal();	// Checking the square for being diagonal Latin square 
+	int IsLatin();		// Checking the square for being Latin square
+	void Initialize(int source[Rank][Rank]);	// Initialization of the square components
+	void Reset();					// Resetting all values of variables
+	void Read(std::istream& is);			// Reading the square from stream
+	void Write(std::ostream& os);			// Writing the square into stream
 
-	int Matrix[Rank][Rank];							// Матрица квадрата
+	int Matrix[Rank][Rank];				// Matrix of the square
 
 protected:
 private:

@@ -2,28 +2,28 @@
 
 using namespace std;
 
-// Конструктор по умолчанию. "Зануление" всех значений
+// Default constructor. "Zeroing" all values
 Square::Square()
 {
 	Reset();
 }
 
 
-// Создание квадрата по заданной матрице
+// Constructing a square by the given matrix
 Square::Square(int source[Rank][Rank])
 {
 	Initialize(source);
 }
 
 
-// Конструктор копирования
+// Copy constructor
 Square::Square(Square& source)
 {
 	Initialize(source.Matrix);
 }
 
 
-// Инициализация внутренних структур
+// Initialization of internal structures
 void Square::Initialize(int source[Rank][Rank])
 {
 	for (int rowId = 0; rowId < Rank; rowId++)
@@ -36,7 +36,7 @@ void Square::Initialize(int source[Rank][Rank])
 }
 
 
-// Сброс значений внутренних переменных
+// Resetting the values of internal variables
 void Square::Reset()
 {
 	for (int rowId = 0; rowId < Rank; rowId++)
@@ -49,7 +49,7 @@ void Square::Reset()
 }
 
 
-// Оператор сравнения
+// Comparison operator
 int Square::operator == (Square& value)
 {
 	int isEqual = 1;
@@ -69,7 +69,7 @@ return isEqual;
 }
 
 
-// Оператор присвоения
+// Assignment operator
 Square& Square::operator = (Square& value)
 {
 	Initialize(value.Matrix);
@@ -78,7 +78,7 @@ return *this;
 }
 
 
-// Оператор вывода данных квадрата
+// Operator of square data output
 std::ostream& operator << (std::ostream& os, Square& value)
 {
 	value.Write(os);
@@ -87,7 +87,7 @@ return os;
 }
 
 
-// Оператор считывания данных квадрата
+// Operator of square data input
 std::istream& operator >> (std::istream& is, Square& value)
 {
 	value.Read(is);
@@ -96,19 +96,19 @@ return is;
 }
 
 
-// Чтение квадрата из потока
+// Reading the square from the stream
 void Square::Read(std::istream& is)
 {
-	char readedChar;	// "Буфер", используемый для посимволного чтения
+	char readedChar;	// "Buffer" used for char-by-char reading
 
-	// Считывание символа начала блока информации
+	// Reading the start token of data block
 	do
 	{
 		is >> readedChar;
 	}
 	while (readedChar != HeadToken);
 
-	// Считывание матрицы квадрата
+	// Reading the matrix of the square
 	for (int rowId = 0; rowId < Rank; rowId++)
 	{
 		for (int columnId = 0; columnId < Rank; columnId++)
@@ -117,7 +117,7 @@ void Square::Read(std::istream& is)
 		}
 	}
 
-	// Считывание символа окончания блока информации
+	// Reading the end token of data block
 	do
 	{
 		is >> readedChar;
@@ -126,13 +126,13 @@ void Square::Read(std::istream& is)
 }
 
 
-// Запись квадрата в поток
+// Writing the square into the stream
 void Square::Write(std::ostream& os)
 {
-	// Запись символа начала блока информации
+	// Writing the start token of data block
 	os << HeadToken << endl;
 
-	// Запись матрицы квадрата
+	// Writing the matrix of the square
 	for (int rowId = 0; rowId < Rank; rowId++)
 	{
 		for (int columnId = 0; columnId < Rank; columnId++)
@@ -142,18 +142,19 @@ void Square::Write(std::ostream& os)
 		os << endl;
 	}
 
-	// Запись символа окончания блока информации
+	// Writing the start token of data block
 	os << TailToken << endl;
 }
 
-// Проверка квадрата на то, что он является диагональным латинским квадратом
+// Checking the square for being diagonal Latin
 int Square::IsDiagonal()
 {
 	int isDiagonal = 1;
 
-	// Проверка первой диагонали - диагонали [0;0] - [rank;rank]
+	// Checking the main diagonal: [0;0] - [rank;rank]
 	for (int itemId = 0; itemId < Rank && isDiagonal; itemId++)
 	{
+                // Checking the element [itemId; itemId]  
 		// Проверка на совпадение элемента [itemId; itemId] со всеми остальными элементами диагонали
 		for (int comparedId = itemId + 1; comparedId < Rank && isDiagonal; comparedId++)
 		{
