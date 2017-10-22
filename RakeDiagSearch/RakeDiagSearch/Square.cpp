@@ -154,8 +154,7 @@ int Square::IsDiagonal()
 	// Checking the main diagonal: [0;0] - [rank;rank]
 	for (int itemId = 0; itemId < Rank && isDiagonal; itemId++)
 	{
-                // Checking the element [itemId; itemId]  
-		// Проверка на совпадение элемента [itemId; itemId] со всеми остальными элементами диагонали
+        // Checking the element [itemId; itemId] to match any other element of the main diagonal
 		for (int comparedId = itemId + 1; comparedId < Rank && isDiagonal; comparedId++)
 		{
 			if (Matrix[itemId][itemId] == Matrix[comparedId][comparedId])
@@ -165,10 +164,10 @@ int Square::IsDiagonal()
 		}
 	}
 
-	// Проверка второй диагонали - диагонали [rank - itemId - 1; itemId]
+	// Checking the secondary diagonal: [rank - itemId - 1; itemId]
 	for (int itemId = 0; itemId < Rank && isDiagonal; itemId ++)
 	{
-		// Проверка на совпадение элемента [rank - itemId - 1; itemId] со всеми остальными элементами диагонали
+		// Checking the element [rank - itemId - 1; itemId] to match any other element of the secondary diagonal 
 		for (int comparedId = itemId + 1; comparedId < Rank && isDiagonal; comparedId++)
 		{
 			if (Matrix[(Rank - itemId - 1)][itemId] == Matrix[(Rank - comparedId - 1)][comparedId])
@@ -182,18 +181,18 @@ int Square::IsDiagonal()
 }
 
 
-// Проверка квадрата на то, что он является латинским квадратом
+// Checking the square for being Latin
 int Square::IsLatin()
 {
 	int isLatin = 1;
 
-	// Проверка столбцов квадрата
+	// Checking the columns
 	for (int columnId = 0; columnId < Rank && isLatin; columnId++)
 	{
-		// Проверка корректности столбца columnId
+		// Checking correctness of the column columnId
 		for (int rowId = 0; rowId < Rank && isLatin; rowId++)
 		{
-			// Проверка на совпадение элемента [rowId; columnId] со всеми остальными элементами столбца columndId
+			// Checking the element [rowId; columnId] to match any other element of the column columndId
 			for (int comparedRowId = rowId + 1; comparedRowId < Rank && isLatin; comparedRowId++)
 			{
 				if (Matrix[comparedRowId][columnId] == Matrix[rowId][columnId])
@@ -204,13 +203,13 @@ int Square::IsLatin()
 		}
 	}
 
-	// Проверка строк квадрата
+	// Checking the rows
 	for (int rowId = 0; rowId < Rank && isLatin; rowId++)
 	{
-		// Проверка корректности строки rowId
+		// Checking correctness of the row rowId
 		for (int columnId = 0; columnId < Rank && isLatin; columnId++)
 		{
-			// Проверка на совпадение элемента [rowId; columnId] со всеми остальными элементами строки rowId
+			// Checking the element [rowId; columnId] to match any other element of the row rowId
 			for (int comparedColumnId = columnId + 1; comparedColumnId < Rank && isLatin; comparedColumnId++)
 			{
 				if (Matrix[rowId][columnId] == Matrix[rowId][comparedColumnId])
@@ -225,13 +224,13 @@ int Square::IsLatin()
 }
 
 
-// Проверка ортогональности квадратов a и b
+// Checking the orthogonality of the squares a and b
 int Square::OrthoDegree(Square a, Square b)
 {
-	int degree = 0;				// Степерь ортогональности
-	int freePair[Rank][Rank];	// Массив использования пар значений в получающемся греко-латинском квадрате
+	int degree = 0;				// Orthogonality degree
+	int freePair[Rank][Rank];	// Array of usage of the values pairs in the generated Greco-Latin square
 
-	// Инциализируем все пары как свободные
+	// Initialize all pairs as non-used, "free"
 	for (int i = 0; i < Rank; i++)
 	{
 		for (int j = 0; j < Rank; j++)
@@ -240,7 +239,7 @@ int Square::OrthoDegree(Square a, Square b)
 		}
 	}
 
-	// Отмечаем пары, использованные в греко-латинском квадрате
+	// Mark the pairs used in the Greco-Latin square
 	for (int rowId = 0; rowId < Rank; rowId++)
 	{
 		for (int columnId = 0; columnId < Rank; columnId++)
