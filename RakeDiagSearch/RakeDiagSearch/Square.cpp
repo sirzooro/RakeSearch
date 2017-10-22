@@ -146,7 +146,7 @@ void Square::Write(std::ostream& os)
 	os << TailToken << endl;
 }
 
-// Checking the square for being diagonal Latin
+// Checking the square for being a diagonal Latin one
 int Square::IsDiagonal()
 {
 	int isDiagonal = 1;
