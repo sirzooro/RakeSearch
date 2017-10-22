@@ -1,4 +1,4 @@
-// Поиск пар диагональных латинских квадратов методом перетасовки строк
+// Search for pairs of diagonal Latin squares by the method of rows permutation
 
 # if !defined MovePairSearch_h
 # define MovePairSearch_h
@@ -15,51 +15,50 @@ class MovePairSearch
 public:
   static const int Rank = Square::Rank;
 
-  MovePairSearch();              // Конструктор по умолчанию
-  void Reset();                  // Сброс настроек поиска
-  void ClearBeforeNextSearch();  // Очистка необходимых переменных перед очередным поиском
-  void InitializeMoveSearch(string start, string result, string checkpoint, string temp);  // Инициализация поиска
-  void StartMoveSearch();        // Запуск поиска ортогональных квадратов методом перестановки строк
-  void OnSquareGenerated(Square newSquare);  // Обработчик события построения ДЛК, запускающий поиск к нему пары
+  MovePairSearch();              // Default constructor
+  void Reset();                  // Reset search settings
+  void ClearBeforeNextSearch();  // Reset the variables before the next search
+  void InitializeMoveSearch(string start, string result, string checkpoint, string temp);  // Search initialization
+  void StartMoveSearch();        // Start the search for orthogonal squares by the method of rows permutation
+  void OnSquareGenerated(Square newSquare);  // Event processor of DLS generation, will start the search for its pair
 
 private:                              
-  static const int CheckpointInterval = 1000000;  // Интервал создания контрольных точек
-  static const int OrhoSquaresCacheSize = 32;     // Размер кэша для хранения квадратов, ортогональных обрабатываемому
+  static const int CheckpointInterval = 1000000;  // Interval for checkpoint creation
+  static const int OrhoSquaresCacheSize = 32;     // Cache size to store the squares orthogonal to the processed one
 
-  void MoveRows();                  // Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
-  void ProcessOrthoSquare();        // Обработка найденного ортогонального квадрата
-  void CheckMutualOrthogonality();  // Проверка взаимной ортогональности квадратов
-  void CreateCheckpoint();          // Создание контрольной точки
-  void Read(std::istream& is);      // Чтение состояния поиска из потока
-  void Write(std::ostream& os);     // Запись состояния поиска в поток
-  void ShowSearchTotals();          // Отображение общих итогов поиска
+  void MoveRows();                  // Permute the rows of the given DLS, trying to find ODLS for it
+  void ProcessOrthoSquare();        // Process the found orthogonal square
+  void CheckMutualOrthogonality();  // Check the mutual orthogonality of a set of squares found in the current search
+  void CreateCheckpoint();          // Create a checkpoint
+  void Read(std::istream& is);      // Read the search status from stream
+  void Write(std::ostream& os);     // Write the search status into stream
+  void ShowSearchTotals();          // Display the total results of the search
 
-  Generator squareAGenerator;       // Генератор ДЛК
-  int squareA[Rank][Rank];          // Исходный ДЛК, строки в котором будут переставляться
-  int squareB[Rank][Rank];          // Подбираемый ДЛК, строки внутри которого и переставляются
-  int rowsUsage[Rank];              // Массив флагов возможно задействования строк на данный момент - rowsUsage[номер строки] = 0 | 1, где 0 - строка уже используется, 1 - нет.
-  int rowsHistory[Rank][Rank];          // Массив истории возможного использования строк - rowsHistory[номер строки][значение] = 0 | 1, 
-                          // где 0 - строка с номером "значение" использовалась для строки "номер строки" формируемого квадрата. 1 - строку ещё можно использовать
-  int currentSquareRows[Rank];          // Массив с перечнем текущих строк, использованных в квадрате. На i-й позиции - номер используемой строки
-  int pairsCount;                  // Число обнаруженных диагональных квадратов в перестановках строк из найдеенного squareA
-  int totalPairsCount;              // Общее число обнаруженных диагональных квадратов - в рамках всего поиска
-  int totalSquaresWithPairs;            // Общее число квадратов, к которым найден хотя бы один ортогональный
-  int totalProcessedSquaresLarge;          // Число обработанных ДЛК, поступивших от генератора - в миллиардах
-  int totalProcessedSquaresSmall;          // Число обработанных ДЛК, поступивших от генератора в пределах до миллиарда
+  Generator squareAGenerator;       // DLS generator
+  int squareA[Rank][Rank];          // Initial DLS, whose rows will be permuted
+  int squareB[Rank][Rank];          // Generated DLS, the rows inside which will be permuted 
+  int rowsUsage[Rank];              // Flags array of the rows usage at the current moment; rowsUsage[number of the row] = 0 | 1, where 0 means the row is already used, 1 - not.
+  int rowsHistory[Rank][Rank];      // Array of the history of rows usage; rowsHistory[number of the row][value] = 0 | 1, where 0 means the row with the number "value" has been used for the row "number of the row" of the generated square; 1 - the row can be used.
+  int currentSquareRows[Rank];      // Array listing the current rows used in the square. The number of the used row is at the i-th position
+  int pairsCount;                   // The number of discovered diagonal squares in rows permutations of the found squareA
+  int totalPairsCount;              // The total number of discovered diagonal squares, within the whole search
+  int totalSquaresWithPairs;        // The total number of squares having at least one orthogonal found for them
+  int totalProcessedSquaresLarge;   // The number of processed DLS received from the generator, billions
+  int totalProcessedSquaresSmall;   // The number of processed DLS received from the generator, less than a billion
 
-  Square orthoSquares[OrhoSquaresCacheSize];    // Кэш для хранения квадратов, ортогональных обрабатываемому
+  Square orthoSquares[OrhoSquaresCacheSize];    // Cache to store the squares orthogonal to the initial one
 
-  string startParametersFileName;   // Название файла с параметрами запуска расчёта
-  string resultFileName;            // Название файла с результатами
-  string checkpointFileName;        // Название файла контрольной точки
-  string tempCheckpointFileName;    // Временное название файла новой контрольной точки
+  string startParametersFileName;   // Name of the file with start parameters for computing  
+  string resultFileName;            // Name of the file with results
+  string checkpointFileName;        // Name of the file with checkpoint
+  string tempCheckpointFileName;    // Temporary name of the file with a new checkpoint
 
-  int isInitialized;                // Флаг инициализированности поиска
-  int isStartFromCheckpoint;        // Флаг запуска с контрольной точки
+  int isInitialized;                // Flag of the search initialization
+  int isStartFromCheckpoint;        // Flag of starting from the checkpoint
 
-  string moveSearchGlobalHeader;    // Заголовок, после которого в файле идут данные о состоянии поиска методом перетасовки строк
-  string moveSearchComponentHeader; // Заголовок, после которого в файле идут данные о состоянии компоненты перетасовки строк
-  static const bool isDebug = false; // Флаг вывода отладочной информации
+  string moveSearchGlobalHeader;    // Header preceding the data about search status
+  string moveSearchComponentHeader; // Header preceding the data about the status of the component of rows permutation
+  static const bool isDebug = false; // Flag of displaying debug information
 };
 
 # endif
