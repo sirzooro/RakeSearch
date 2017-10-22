@@ -30,8 +30,8 @@ private:
   void ProcessOrthoSquare();        // Process the found orthogonal square
   void CheckMutualOrthogonality();  // Check the mutual orthogonality of a set of squares found in the current search
   void CreateCheckpoint();          // Create a checkpoint
-  void Read(std::istream& is);      // Read the search status from stream
-  void Write(std::ostream& os);     // Write the search status into stream
+  void Read(std::istream& is);      // Read the search state from stream
+  void Write(std::ostream& os);     // Write the search state into stream
   void ShowSearchTotals();          // Display the total results of the search
 
   Generator squareAGenerator;       // DLS generator
@@ -56,8 +56,8 @@ private:
   int isInitialized;                // Flag of the search initialization
   int isStartFromCheckpoint;        // Flag of starting from the checkpoint
 
-  string moveSearchGlobalHeader;    // Header preceding the data about search status
-  string moveSearchComponentHeader; // Header preceding the data about the status of the component of rows permutation
+  string moveSearchGlobalHeader;    // Header preceding the data about search state
+  string moveSearchComponentHeader; // Header preceding the data about the state of the component of rows permutation
   static const bool isDebug = false; // Flag of displaying debug information
 };
 
