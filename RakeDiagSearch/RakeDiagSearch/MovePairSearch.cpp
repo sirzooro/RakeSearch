@@ -79,15 +79,15 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
   checkpointFileName = checkpoint;
   tempCheckpointFileName = temp;
 
-  // Read the generator status and the search status from the checkpoint file or initial values 
+  // Read the generator state and the search state from the checkpoint file or initial values 
     // Open files with initial parameters and the checkpoint file
     startFile.open(startParametersFileName.c_str(), std::ios_base::in);
     checkpointFile.open(checkpointFileName.c_str(), std::ios_base::in);
 
-    // Read the status
+    // Read the state
 	if (checkpointFile.is_open())
 	{
-		// Read the status from the checkpoint file
+		// Read the state from the checkpoint file
 		try
 		{
 			Read(checkpointFile);
@@ -102,7 +102,7 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
 
 	if (isStartFromCheckpoint != 1)
     {
-		// Read the status from the initial parameters file
+		// Read the state from the initial parameters file
 		Read(startFile);
 		isStartFromCheckpoint = 0;
     }
@@ -113,7 +113,7 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
 }
 
 
-// Read the search status from stream
+// Read the search state from stream
 void MovePairSearch::Read(istream& is)
 {
   string marker;
@@ -121,8 +121,8 @@ void MovePairSearch::Read(istream& is)
   // Reset the initialization flag
   isInitialized = 0;
 
-  // Read the search status
-    // Find the start marker of the status
+  // Read the search state
+    // Find the start marker of the state
     do
 	{
 		std::getline(is, marker);
@@ -134,7 +134,7 @@ void MovePairSearch::Read(istream& is)
     }
     while (marker != moveSearchGlobalHeader);
     
-    // Read the status of the DLS generator
+    // Read the state of the DLS generator
     is >> squareAGenerator;
 
     // Find the marker of permutation component
@@ -161,15 +161,15 @@ void MovePairSearch::Read(istream& is)
 }
 
 
-// Write the search status into stream
+// Write the search state into stream
 void MovePairSearch::Write(ostream& os)
 {
-  // Write the search status
+  // Write the search state
     // Writing the header
     os << moveSearchGlobalHeader << endl;
     os << endl;
 
-    // Write the status of the DLS generator
+    // Write the state of the DLS generator
     os << squareAGenerator;
     os << endl;
 
@@ -246,7 +246,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   // Gather statistics on the processed squares
   totalProcessedSquaresSmall++;
 
-  // Fix the information about status of processing 
+  // Fix the information about state of processing 
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
     // Update the completion progress for the BOINC client
