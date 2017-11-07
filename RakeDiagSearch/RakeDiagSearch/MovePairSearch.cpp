@@ -2,7 +2,10 @@
 
 #include "MovePairSearch.h"
 #include "boinc_api.h"
+
+#ifdef __SSE2__
 #include "immintrin.h"
+#endif
 
 #ifndef _MSC_VER
 #define ffs __builtin_ffs
@@ -129,7 +132,7 @@ void MovePairSearch::ClearBeforeNextSearch()
   {
     currentSquareRows[i] = -1;
   }
-  rowsUsage = AllBitsMask(Rank);
+  //rowsUsage = AllBitsMask(Rank);
 
   // Reset the counter of pairs found for the given DLS
   pairsCount = 0;
@@ -367,20 +370,26 @@ void MovePairSearch::MoveRows()
   int duplicationDetected = 0;
   
   int diagonalValuesHistory[Rank][2];
+  
+  int rowsUsage; // Flags of the rows usage at the current moment; rowsUsage[number of the row] = 0 | 1, where 0 means the row is already used, 1 - not.
 
   // Write the 1st row of square A into square B for the search of normalized squares
   CopyRow(&squareB[0][0], &squareA[0][0]);
 
   // Mark the usage of the 1st row, because it is fixed
-  ClearBit(rowsUsage, 0);
+  rowsUsage = AllBitsMask(Rank) & ~1u;
+  //ClearBit(rowsUsage, 0);
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
   
   // Set bits for diagonal values in 1st row
   diagonalValuesHistory[0][0] = 1u << squareB[0][0];
   diagonalValuesHistory[0][1] = 1u << squareB[0][Rank - 1];
+  
+  diagonalValues = diagonalValuesHistory[0][0];
+  diagonalValues2 = diagonalValuesHistory[0][1];
 
-  while (currentRowId > 0)
+  while (1)
   {
     // Select a row from the initial square for the position currentRowId of the generated square
     // Process the search result
@@ -413,9 +422,6 @@ void MovePairSearch::MoveRows()
 
         // Check diagonality of the generated part of the square 
           // Check the main diagonal and secondary diagonal
-            // Get saved values for previous row
-            diagonalValues = diagonalValuesHistory[currentRowId-1][0];
-            diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
             // Calculate bits for current row
             int bit1 = 1u << squareA[gettingRowId][currentRowId];
             int bit2 = 1u << squareA[gettingRowId][Rank - 1 - currentRowId];
@@ -438,8 +444,10 @@ void MovePairSearch::MoveRows()
           else
           {
             // Save new bitmasks for diagonal values for further use
-            diagonalValuesHistory[currentRowId][0] = diagonalValues | bit1;
-            diagonalValuesHistory[currentRowId][1] = diagonalValues2 | bit2;
+            diagonalValues |= bit1;
+            diagonalValues2 |= bit2;
+            diagonalValuesHistory[currentRowId][0] = diagonalValues;
+            diagonalValuesHistory[currentRowId][1] = diagonalValues2;
             
             // Step forward
             currentRowId++;
@@ -462,6 +470,12 @@ void MovePairSearch::MoveRows()
         rowsHistory[currentRowId] = AllBitsMask(Rank);
         // Step backward
         currentRowId--;
+        // Check if we are done
+        if (0 == currentRowId)
+          break;
+        // Get saved values for previous row
+        diagonalValues = diagonalValuesHistory[currentRowId-1][0];
+        diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
     }
   }
 }
