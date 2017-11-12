@@ -132,7 +132,6 @@ void MovePairSearch::ClearBeforeNextSearch()
   {
     currentSquareRows[i] = -1;
   }
-  //rowsUsage = AllBitsMask(Rank);
 
   // Reset the counter of pairs found for the given DLS
   pairsCount = 0;
@@ -378,7 +377,6 @@ void MovePairSearch::MoveRows()
 
   // Mark the usage of the 1st row, because it is fixed
   rowsUsage = AllBitsMask(Rank) & ~1u;
-  //ClearBit(rowsUsage, 0);
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
   
@@ -398,36 +396,18 @@ void MovePairSearch::MoveRows()
     {
       gettingRowId = ffs(gettingRowId) - 1;
       // Process the new found row
-        // Write the new row into the square
-          // Read the number of the row which is now in the square
-          oldRowId = currentSquareRows[currentRowId];
-          // Write the new row into the square, the flags array of the used rows 
-          // into the history of the used rows, and the array of the current rows
-          
-            // Mark the row in the array of the used rows
-            ClearBit(rowsUsage, gettingRowId);
-            // Mark the row in the history of the used rows
-            ClearBit(rowsHistory[currentRowId], gettingRowId);
-            // Write the row into the array of the current rows
-            currentSquareRows[currentRowId] = gettingRowId;
 
-        // Clear usage flags of the previous row
-          // Clear the mark in the array of the used rows
-          // 1 shifted by a very large value (-1 casted to uint) is 0.
-          // This is a no-op, but help save some CPU cycles
-          //if (oldRowId != -1)
-          {
-            SetBit(rowsUsage, (unsigned int)oldRowId);
-          }
+      // Mark the row in the history of the used rows
+      ClearBit(rowsHistory[currentRowId], gettingRowId);
 
-        // Check diagonality of the generated part of the square 
-          // Check the main diagonal and secondary diagonal
-            // Calculate bits for current row
-            int bit1 = 1u << squareA[gettingRowId][currentRowId];
-            int bit2 = 1u << squareA[gettingRowId][Rank - 1 - currentRowId];
-            
-            // Duplicate check
-            duplicationDetected = ((0 != (diagonalValues & bit1)) || (0 != (diagonalValues2 & bit2)));
+      // Check diagonality of the generated part of the square
+      // Check the main diagonal and secondary diagonal
+      // Calculate bits for current row
+      int bit1 = 1u << squareA[gettingRowId][currentRowId];
+      int bit2 = 1u << squareA[gettingRowId][Rank - 1 - currentRowId];
+
+      // Duplicate check
+      duplicationDetected = ((0 != (diagonalValues & bit1)) || (0 != (diagonalValues2 & bit2)));
 
         // Process the results of checking the square for diagonality
         if (!duplicationDetected)
@@ -435,6 +415,9 @@ void MovePairSearch::MoveRows()
           // Write the new row into the square
           CopyRow(&squareB[currentRowId][0], &squareA[gettingRowId][0]);
           
+          // Write the row into the array of the current rows
+          currentSquareRows[currentRowId] = gettingRowId;
+
           // Step forward depending on the current position
           if (currentRowId == Rank - 1)
           {
@@ -448,7 +431,10 @@ void MovePairSearch::MoveRows()
             diagonalValues2 |= bit2;
             diagonalValuesHistory[currentRowId][0] = diagonalValues;
             diagonalValuesHistory[currentRowId][1] = diagonalValues2;
-            
+
+            // Mark the row in the array of the used rows
+            ClearBit(rowsUsage, gettingRowId);
+
             // Step forward
             currentRowId++;
           }
@@ -458,14 +444,11 @@ void MovePairSearch::MoveRows()
     {
       // Process not-founding of the new row: step backward, clear the flags of usage,
       // the history of usage, the list of current rows and clear the square itself
-        // Read the number of the current row
-        oldRowId = currentSquareRows[currentRowId];
+
         // Clear the current row
         SetRow(&squareB[currentRowId][0], -1);
         // Clear the current square
         currentSquareRows[currentRowId] = -1;
-        // Clear the flag of possible usage
-        SetBit(rowsUsage, oldRowId);
         // Clear the history of work with this cell
         rowsHistory[currentRowId] = AllBitsMask(Rank);
         // Step backward
@@ -476,6 +459,8 @@ void MovePairSearch::MoveRows()
         // Get saved values for previous row
         diagonalValues = diagonalValuesHistory[currentRowId-1][0];
         diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
+        // Clear the flag of row usage
+        SetBit(rowsUsage, currentSquareRows[currentRowId]);
     }
   }
 }

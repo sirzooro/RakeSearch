@@ -40,7 +40,6 @@ private:
   Generator squareAGenerator;       // DLS generator
   int squareA[Rank][Rank];          // Initial DLS, whose rows will be permuted
   int squareB[Rank][Rank];          // Generated DLS, the rows inside which will be permuted 
-  //int rowsUsage;              // Flags of the rows usage at the current moment; rowsUsage[number of the row] = 0 | 1, where 0 means the row is already used, 1 - not.
   int rowsHistory[Rank];      // Array of the history of rows usage; rowsHistory[number of the row][value] = 0 | 1, where 0 means the row with the number "value" has been used for the row "number of the row" of the generated square; 1 - the row can be used.
   int currentSquareRows[Rank];      // Array listing the current rows used in the square. The number of the used row is at the i-th position
   int pairsCount;                   // The number of discovered diagonal squares in rows permutations of the found squareA
