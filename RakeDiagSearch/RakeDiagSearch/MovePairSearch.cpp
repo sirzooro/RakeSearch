@@ -303,6 +303,9 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     for (int j = 0; j < Rank; j++)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
+#ifdef __AVX2__
+      squareA_T[j][i] = squareA[i][j];
+#endif
     }
   }
 
@@ -363,7 +366,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
 // Permute the rows of the given DLS, trying to find ODLS for it
 void MovePairSearch::MoveRows()
 {
-  int currentRowId = 1;
+  int currentRowId;
   int isRowGet = 0;
   int gettingRowId = -1;
   int oldRowId = -1;
@@ -384,7 +387,18 @@ void MovePairSearch::MoveRows()
   rowsUsage = AllBitsMask(Rank) & ~1u;
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
+
+#ifndef __AVX2__
+  // For non-AVX2 builds start from 1st row, and mark all rows except 0th as candidates
+  currentRowId = 1;
   rowCandidates = AllBitsMask(Rank) & ~1u;
+#else
+  // AVX2 version performs duplicate check when it steps forward to next row
+  // and saves result as a candidates. So we have to start from 0th row and
+  // mark it as the only candidate in order to perform duplicate check for 1st row.
+  currentRowId = 0;
+  rowCandidates = 1;
+#endif
 
   // Set bits for diagonal values in 1st row
   diagonalValuesHistory[0][0] = 1u << squareB[0][0];
@@ -411,11 +425,13 @@ void MovePairSearch::MoveRows()
       int bit1 = 1u << squareA[gettingRowId][currentRowId];
       int bit2 = 1u << squareA[gettingRowId][Rank - 1 - currentRowId];
 
+#ifndef __AVX2__
       // Duplicate check
       duplicationDetected = ((0 != (diagonalValues & bit1)) || (0 != (diagonalValues2 & bit2)));
 
         // Process the results of checking the square for diagonality
         if (!duplicationDetected)
+#endif
         {
           // Write the new row into the square
           CopyRow(&squareB[currentRowId][0], &squareA[gettingRowId][0]);
@@ -442,12 +458,57 @@ void MovePairSearch::MoveRows()
 
             // Mark the row in the array of the used rows
             ClearBit(rowsUsage, gettingRowId);
+
+#ifndef __AVX2__
             // Set new row candidates
             rowCandidates = rowsUsage;
+#endif
 
             // Step forward
             currentRowId++;
             DBG_UP();
+
+#ifdef __AVX2__
+            // load data for columns which will be on diagonals
+            // for performance result load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            __m256i vCol1 = _mm256_loadu_si256((const __m256i*)&squareA_T[currentRowId][1]);
+            __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_T[Rank - 1 - currentRowId][1]);
+
+            // get bits for potential diagonal values
+            const __m256i v1 = _mm256_set1_epi32(1);
+            vCol1 = _mm256_sllv_epi32(v1, vCol1);
+            vCol2 = _mm256_sllv_epi32(v1, vCol2);
+
+            // AND results with diagnonal masks
+            __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues);
+            __m256i vDiagMask2 = _mm256_set1_epi32(diagonalValues2);
+
+            vCol1 = _mm256_and_si256(vCol1, vDiagMask1);
+            vCol2 = _mm256_and_si256(vCol2, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1 = _mm256_or_si256(vCol1, vCol2);
+
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+            // check if result is zero and get result as a bitmask
+            __mmask8 resultMask = _mm256_cmpeq_epi32_mask(vCol1, _mm256_setzero_si256());
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (resultMask << 1) & rowsUsage;
+#else
+            // check if result is zero
+            vCol1 = _mm256_cmpeq_epi32(vCol1, _mm256_setzero_si256());
+            // create mask from vector
+            // there are 4 bits per result, so we need to extract every 4th one
+            int mask = _mm256_movemask_epi8(vCol1);
+            mask = _pext_u32(mask, 0x11111111);
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#endif // AVX512
+#endif // AVX2
           }
         }
     }
