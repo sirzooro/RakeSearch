@@ -114,7 +114,7 @@ void MovePairSearch::Reset()
 // Reset the variables before the next search
 void MovePairSearch::ClearBeforeNextSearch()
 {
-  // Reset the values of matrices of squares A and B, 
+  // Reset the values of matrices of squares A and B,
   // also the matrix of rows usage when forming square B
   for (int i = 0; i < Rank; i++)
   {
@@ -139,7 +139,7 @@ void MovePairSearch::ClearBeforeNextSearch()
 
 
 // Search initialization
-void MovePairSearch::InitializeMoveSearch(string start, string result, 
+void MovePairSearch::InitializeMoveSearch(string start, string result,
                                        string checkpoint, string temp)
 {
   fstream startFile;
@@ -151,7 +151,7 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
   checkpointFileName = checkpoint;
   tempCheckpointFileName = temp;
 
-  // Read the generator state and the search state from the checkpoint file or initial values 
+  // Read the generator state and the search state from the checkpoint file or initial values
     // Open files with initial parameters and the checkpoint file
     startFile.open(startParametersFileName.c_str(), std::ios_base::in);
     checkpointFile.open(checkpointFileName.c_str(), std::ios_base::in);
@@ -205,7 +205,7 @@ void MovePairSearch::Read(istream& is)
 		}
     }
     while (marker != moveSearchGlobalHeader);
-    
+
     // Read the state of the DLS generator
     is >> squareAGenerator;
 
@@ -278,7 +278,7 @@ void MovePairSearch::CreateCheckpoint()
 void MovePairSearch::StartMoveSearch()
 {
   // Subscribe to the event of finding a DLS
-  squareAGenerator.Subscribe(this); 
+  squareAGenerator.Subscribe(this);
 
   // Start DLS generation
   squareAGenerator.Start();
@@ -291,7 +291,7 @@ void MovePairSearch::StartMoveSearch()
 }
 
 
-// Event processor of DLS generation, will start the search for its pair 
+// Event processor of DLS generation, will start the search for its pair
 void MovePairSearch::OnSquareGenerated(Square newSquare)
 {
   // Reset before the search for orthogonal squares
@@ -318,14 +318,14 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   // Gather statistics on the processed squares
   totalProcessedSquaresSmall++;
 
-  // Fix the information about state of processing 
+  // Fix the information about state of processing
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
     // Update the completion progress for the BOINC client
     double fraction_done;
     if(Rank == 8)
       fraction_done = (double)(totalProcessedSquaresSmall)/5000000.0;
-    else 
+    else
     {
       if(Rank == 9)
         fraction_done = (double)(totalProcessedSquaresSmall)/275000000.0;
@@ -343,7 +343,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     if (boinc_time_to_checkpoint()) {
       CreateCheckpoint();
       boinc_checkpoint_completed(); // BOINC client knows the checkpoint has been created
-    }  
+    }
 
     if(isDebug)
     {
@@ -357,6 +357,9 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   }
 }
 
+#define DBG_UP()
+#define DBG_DOWN()
+
 // Permute the rows of the given DLS, trying to find ODLS for it
 void MovePairSearch::MoveRows()
 {
@@ -367,10 +370,12 @@ void MovePairSearch::MoveRows()
 
   int diagonalValues, diagonalValues2;
   int duplicationDetected = 0;
-  
+
   int diagonalValuesHistory[Rank][2];
-  
+
   int rowsUsage; // Flags of the rows usage at the current moment; rowsUsage[number of the row] = 0 | 1, where 0 means the row is already used, 1 - not.
+
+  int rowCandidates; // Rows which still have to be checked
 
   // Write the 1st row of square A into square B for the search of normalized squares
   CopyRow(&squareB[0][0], &squareA[0][0]);
@@ -379,11 +384,12 @@ void MovePairSearch::MoveRows()
   rowsUsage = AllBitsMask(Rank) & ~1u;
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
-  
+  rowCandidates = AllBitsMask(Rank) & ~1u;
+
   // Set bits for diagonal values in 1st row
   diagonalValuesHistory[0][0] = 1u << squareB[0][0];
   diagonalValuesHistory[0][1] = 1u << squareB[0][Rank - 1];
-  
+
   diagonalValues = diagonalValuesHistory[0][0];
   diagonalValues2 = diagonalValuesHistory[0][1];
 
@@ -391,14 +397,13 @@ void MovePairSearch::MoveRows()
   {
     // Select a row from the initial square for the position currentRowId of the generated square
     // Process the search result
-    gettingRowId = rowsUsage & rowsHistory[currentRowId];
-    if (gettingRowId)
+    if (rowCandidates)
     {
-      gettingRowId = ffs(gettingRowId) - 1;
+      gettingRowId = ffs(rowCandidates) - 1;
       // Process the new found row
 
       // Mark the row in the history of the used rows
-      ClearBit(rowsHistory[currentRowId], gettingRowId);
+      ClearBit(rowCandidates, gettingRowId);
 
       // Check diagonality of the generated part of the square
       // Check the main diagonal and secondary diagonal
@@ -414,7 +419,7 @@ void MovePairSearch::MoveRows()
         {
           // Write the new row into the square
           CopyRow(&squareB[currentRowId][0], &squareA[gettingRowId][0]);
-          
+
           // Write the row into the array of the current rows
           currentSquareRows[currentRowId] = gettingRowId;
 
@@ -432,11 +437,17 @@ void MovePairSearch::MoveRows()
             diagonalValuesHistory[currentRowId][0] = diagonalValues;
             diagonalValuesHistory[currentRowId][1] = diagonalValues2;
 
+            // Save remaining candidates in row history
+            rowsHistory[currentRowId] = rowCandidates;
+
             // Mark the row in the array of the used rows
             ClearBit(rowsUsage, gettingRowId);
+            // Set new row candidates
+            rowCandidates = rowsUsage;
 
             // Step forward
             currentRowId++;
+            DBG_UP();
           }
         }
     }
@@ -445,14 +456,9 @@ void MovePairSearch::MoveRows()
       // Process not-founding of the new row: step backward, clear the flags of usage,
       // the history of usage, the list of current rows and clear the square itself
 
-        // Clear the current row
-        SetRow(&squareB[currentRowId][0], -1);
-        // Clear the current square
-        currentSquareRows[currentRowId] = -1;
-        // Clear the history of work with this cell
-        rowsHistory[currentRowId] = AllBitsMask(Rank);
         // Step backward
         currentRowId--;
+        DBG_DOWN();
         // Check if we are done
         if (0 == currentRowId)
           break;
@@ -461,6 +467,8 @@ void MovePairSearch::MoveRows()
         diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
         // Clear the flag of row usage
         SetBit(rowsUsage, currentSquareRows[currentRowId]);
+        // Get saved candidates
+        rowCandidates = rowsHistory[currentRowId];
     }
   }
 }
@@ -479,7 +487,7 @@ void MovePairSearch::ProcessOrthoSquare()
 
   // Check the square for being a copy of the initial one
   isDifferent = 0;
-  
+
   for (int i = 0; i < Rank; i++)
   {
     if (currentSquareRows[i] != i)
@@ -490,7 +498,7 @@ void MovePairSearch::ProcessOrthoSquare()
   }
 
   // Process the found square
-  if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric 
+  if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric
       && b.IsDiagonal() && b.IsLatin() && a.IsDiagonal() && b.IsLatin())
   {
     // Write the information about the found square
@@ -516,7 +524,7 @@ void MovePairSearch::ProcessOrthoSquare()
       {
         if(isDebug)
         {
-          // Output the information about the 1st square in a pair as a header 
+          // Output the information about the 1st square in a pair as a header
           cout << "{" << endl;
           cout << "# ------------------------" << endl;
           cout << "# Detected pair for the square: " << endl;
@@ -552,7 +560,7 @@ void MovePairSearch::ProcessOrthoSquare()
         // Output the information into the file
         resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
-        { 
+        {
           resultFile << b << endl;
           resultFile.close();
         }
@@ -586,7 +594,7 @@ void MovePairSearch::CheckMutualOrthogonality()
   resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
   if (!resultFile.is_open()) { cout << "Error opening file!"; return; }
 
-  // Check the mutual orthogonality of a set of squares 
+  // Check the mutual orthogonality of a set of squares
   for (int i = 0; i <= maxSquareId; i++)
   {
     for (int j = i + 1; j <= maxSquareId; j++)
