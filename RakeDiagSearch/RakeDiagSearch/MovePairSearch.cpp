@@ -303,8 +303,9 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     for (int j = 0; j < Rank; j++)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
+      squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
 #ifdef __AVX2__
-      squareA_T[j][i] = squareA[i][j];
+      squareA_MaskT[j][i] = squareA_Mask[i][j];
 #endif
     }
   }
@@ -421,9 +422,9 @@ void MovePairSearch::MoveRows()
 
       // Check diagonality of the generated part of the square
       // Check the main diagonal and secondary diagonal
-      // Calculate bits for current row
-      int bit1 = 1u << squareA[gettingRowId][currentRowId];
-      int bit2 = 1u << squareA[gettingRowId][Rank - 1 - currentRowId];
+      // Get bits for current row
+      int bit1 = squareA_Mask[gettingRowId][currentRowId];
+      int bit2 = squareA_Mask[gettingRowId][Rank - 1 - currentRowId];
 
 #ifndef __AVX2__
       // Duplicate check
@@ -433,15 +434,18 @@ void MovePairSearch::MoveRows()
         if (!duplicationDetected)
 #endif
         {
-          // Write the new row into the square
-          CopyRow(&squareB[currentRowId][0], &squareA[gettingRowId][0]);
-
           // Write the row into the array of the current rows
           currentSquareRows[currentRowId] = gettingRowId;
 
           // Step forward depending on the current position
           if (currentRowId == Rank - 1)
           {
+            // Write rows into the square in correct order
+            for (int n = 1; n < Rank; ++n)
+            {
+              CopyRow(&squareB[n][0], &squareA[currentSquareRows[n]][0]);
+            }
+
             // Process the found square
             ProcessOrthoSquare();
           }
@@ -469,18 +473,13 @@ void MovePairSearch::MoveRows()
             DBG_UP();
 
 #ifdef __AVX2__
-            // load data for columns which will be on diagonals
-            // for performance result load this as a row from transposed square
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            __m256i vCol1 = _mm256_loadu_si256((const __m256i*)&squareA_T[currentRowId][1]);
-            __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_T[Rank - 1 - currentRowId][1]);
+            __m256i vCol1 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[currentRowId][1]);
+            __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
 
-            // get bits for potential diagonal values
-            const __m256i v1 = _mm256_set1_epi32(1);
-            vCol1 = _mm256_sllv_epi32(v1, vCol1);
-            vCol2 = _mm256_sllv_epi32(v1, vCol2);
-
-            // AND results with diagnonal masks
+            // AND loaded values with diagnonal masks
             __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues);
             __m256i vDiagMask2 = _mm256_set1_epi32(diagonalValues2);
 

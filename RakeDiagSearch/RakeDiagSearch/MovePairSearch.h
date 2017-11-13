@@ -40,8 +40,9 @@ private:
   Generator squareAGenerator;       // DLS generator
   int squareA[Rank][Rank];          // Initial DLS, whose rows will be permuted
   int squareB[Rank][Rank];          // Generated DLS, the rows inside which will be permuted 
+  int squareA_Mask[Rank][Rank];     // Bitmasks for values in squareA
 #ifdef __AVX2__
-  int squareA_T[Rank][Rank];        // Transposed copy of squareA
+  int squareA_MaskT[Rank][Rank];    // Transposed copy of squareA_Mask
 #endif
   int rowsHistory[Rank];      // Array of the history of rows usage; rowsHistory[number of the row][value] = 0 | 1, where 0 means the row with the number "value" has been used for the row "number of the row" of the generated square; 1 - the row can be used.
   int currentSquareRows[Rank];      // Array listing the current rows used in the square. The number of the used row is at the i-th position
