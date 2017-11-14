@@ -26,6 +26,7 @@ private:
   static const int CheckpointInterval = 1000000;  // Interval for checkpoint creation
   static const int OrhoSquaresCacheSize = 32;     // Cache size to store the squares orthogonal to the processed one
 
+  void InitMask4to1bits();
   void MoveRows();                  // Permute the rows of the given DLS, trying to find ODLS for it
   void ProcessOrthoSquare();        // Process the found orthogonal square
   void CheckMutualOrthogonality();  // Check the mutual orthogonality of a set of squares found in the current search
@@ -41,7 +42,7 @@ private:
   int squareA[Rank][Rank];          // Initial DLS, whose rows will be permuted
   int squareB[Rank][Rank];          // Generated DLS, the rows inside which will be permuted 
   int squareA_Mask[Rank][Rank];     // Bitmasks for values in squareA
-#ifdef __AVX2__
+#ifdef __SSE2__
   int squareA_MaskT[Rank][Rank];    // Transposed copy of squareA_Mask
 #endif
   int rowsHistory[Rank];      // Array of the history of rows usage; rowsHistory[number of the row][value] = 0 | 1, where 0 means the row with the number "value" has been used for the row "number of the row" of the generated square; 1 - the row can be used.
@@ -65,6 +66,10 @@ private:
   string moveSearchGlobalHeader;    // Header preceding the data about search state
   string moveSearchComponentHeader; // Header preceding the data about the state of the component of rows permutation
   static const bool isDebug = false; // Flag of displaying debug information
+
+#if defined(__SSE2__) && !defined(__AVX2__)
+  unsigned char mask4to1bits[0x10000]; // Lookup table to map 4 bit packs returned by movemask to 1 bit
+#endif
 };
 
 # endif

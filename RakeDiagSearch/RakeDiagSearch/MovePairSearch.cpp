@@ -80,6 +80,31 @@ inline void MovePairSearch::SetRow(int* dst, int val)
 MovePairSearch::MovePairSearch()
 {
   Reset();
+  InitMask4to1bits();
+}
+
+// Initialize mask4to1bits lookup table
+void MovePairSearch::InitMask4to1bits()
+{
+#if defined(__SSE2__) && !defined(__AVX2__)
+  memset(mask4to1bits, 0, sizeof(mask4to1bits));
+  mask4to1bits[0x0000] = 0;
+  mask4to1bits[0x000f] = 1;
+  mask4to1bits[0x00f0] = 2;
+  mask4to1bits[0x00ff] = 3;
+  mask4to1bits[0x0f00] = 4;
+  mask4to1bits[0x0f0f] = 5;
+  mask4to1bits[0x0ff0] = 6;
+  mask4to1bits[0x0fff] = 7;
+  mask4to1bits[0xf000] = 8;
+  mask4to1bits[0xf00f] = 9;
+  mask4to1bits[0xf0f0] = 10;
+  mask4to1bits[0xf0ff] = 11;
+  mask4to1bits[0xff00] = 12;
+  mask4to1bits[0xff0f] = 13;
+  mask4to1bits[0xfff0] = 14;
+  mask4to1bits[0xffff] = 15;
+#endif
 }
 
 // Reset search settings
@@ -372,7 +397,7 @@ void MovePairSearch::MoveRows()
   int gettingRowId = -1;
   int oldRowId = -1;
 
-  int diagonalValues, diagonalValues2;
+  int diagonalValues1, diagonalValues2;
   int duplicationDetected = 0;
 
   int diagonalValuesHistory[Rank][2];
@@ -389,12 +414,12 @@ void MovePairSearch::MoveRows()
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
 
-#ifndef __AVX2__
-  // For non-AVX2 builds start from 1st row, and mark all rows except 0th as candidates
+#ifndef __SSE2__
+  // For non-vectorized builds start from 1st row, and mark all rows except 0th as candidates
   currentRowId = 1;
   rowCandidates = AllBitsMask(Rank) & ~1u;
 #else
-  // AVX2 version performs duplicate check when it steps forward to next row
+  // SSE2/AVX2 version performs duplicate check when it steps forward to next row
   // and saves result as a candidates. So we have to start from 0th row and
   // mark it as the only candidate in order to perform duplicate check for 1st row.
   currentRowId = 0;
@@ -405,7 +430,7 @@ void MovePairSearch::MoveRows()
   diagonalValuesHistory[0][0] = 1u << squareB[0][0];
   diagonalValuesHistory[0][1] = 1u << squareB[0][Rank - 1];
 
-  diagonalValues = diagonalValuesHistory[0][0];
+  diagonalValues1 = diagonalValuesHistory[0][0];
   diagonalValues2 = diagonalValuesHistory[0][1];
 
   while (1)
@@ -426,9 +451,9 @@ void MovePairSearch::MoveRows()
       int bit1 = squareA_Mask[gettingRowId][currentRowId];
       int bit2 = squareA_Mask[gettingRowId][Rank - 1 - currentRowId];
 
-#ifndef __AVX2__
+#ifndef __SSE2__
       // Duplicate check
-      duplicationDetected = ((0 != (diagonalValues & bit1)) || (0 != (diagonalValues2 & bit2)));
+      duplicationDetected = ((0 != (diagonalValues1 & bit1)) || (0 != (diagonalValues2 & bit2)));
 
         // Process the results of checking the square for diagonality
         if (!duplicationDetected)
@@ -452,9 +477,9 @@ void MovePairSearch::MoveRows()
           else
           {
             // Save new bitmasks for diagonal values for further use
-            diagonalValues |= bit1;
+            diagonalValues1 |= bit1;
             diagonalValues2 |= bit2;
-            diagonalValuesHistory[currentRowId][0] = diagonalValues;
+            diagonalValuesHistory[currentRowId][0] = diagonalValues1;
             diagonalValuesHistory[currentRowId][1] = diagonalValues2;
 
             // Save remaining candidates in row history
@@ -463,7 +488,7 @@ void MovePairSearch::MoveRows()
             // Mark the row in the array of the used rows
             ClearBit(rowsUsage, gettingRowId);
 
-#ifndef __AVX2__
+#ifndef __SSE2__
             // Set new row candidates
             rowCandidates = rowsUsage;
 #endif
@@ -480,7 +505,7 @@ void MovePairSearch::MoveRows()
             __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
 
             // AND loaded values with diagnonal masks
-            __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues);
+            __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues1);
             __m256i vDiagMask2 = _mm256_set1_epi32(diagonalValues2);
 
             vCol1 = _mm256_and_si256(vCol1, vDiagMask1);
@@ -496,7 +521,7 @@ void MovePairSearch::MoveRows()
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (resultMask << 1) & rowsUsage;
-#else
+#else // AVX512
             // check if result is zero
             vCol1 = _mm256_cmpeq_epi32(vCol1, _mm256_setzero_si256());
             // create mask from vector
@@ -507,7 +532,41 @@ void MovePairSearch::MoveRows()
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
 #endif // AVX512
-#endif // AVX2
+#elif defined(__SSE2__)
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            __m128i vCol1a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][1]);
+            __m128i vCol1b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][5]);
+            __m128i vCol2a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            __m128i vCol2b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+
+            // AND loaded values with diagnonal masks
+            __m128i vDiagMask1 = _mm_set1_epi32(diagonalValues1);
+            __m128i vDiagMask2 = _mm_set1_epi32(diagonalValues2);
+
+            vCol1a = _mm_and_si128(vCol1a, vDiagMask1);
+            vCol1b = _mm_and_si128(vCol1b, vDiagMask1);
+            vCol2a = _mm_and_si128(vCol2a, vDiagMask2);
+            vCol2b = _mm_and_si128(vCol2b, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1a = _mm_or_si128(vCol1a, vCol2a);
+            vCol1b = _mm_or_si128(vCol1b, vCol2b);
+
+            // check if result is zero
+            vCol1a = _mm_cmpeq_epi32(vCol1a, _mm_setzero_si128());
+            vCol1b = _mm_cmpeq_epi32(vCol1b, _mm_setzero_si128());
+            // create mask from vector
+            // there are 4 bits per result, so we need to extract every 4th one
+            int mask1 = _mm_movemask_epi8(vCol1a);
+            int mask2 = _mm_movemask_epi8(vCol1b);
+            int mask = mask4to1bits[mask1] | (mask4to1bits[mask2] << 4);
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#endif // AVX2/SSE2
           }
         }
     }
@@ -523,7 +582,7 @@ void MovePairSearch::MoveRows()
         if (0 == currentRowId)
           break;
         // Get saved values for previous row
-        diagonalValues = diagonalValuesHistory[currentRowId-1][0];
+        diagonalValues1 = diagonalValuesHistory[currentRowId-1][0];
         diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
         // Clear the flag of row usage
         SetBit(rowsUsage, currentSquareRows[currentRowId]);
