@@ -329,7 +329,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
       squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
-#ifdef __AVX2__
+#ifdef __SSE2__
       squareA_MaskT[j][i] = squareA_Mask[i][j];
 #endif
     }
@@ -393,12 +393,9 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
 void MovePairSearch::MoveRows()
 {
   int currentRowId;
-  int isRowGet = 0;
   int gettingRowId = -1;
-  int oldRowId = -1;
 
   int diagonalValues1, diagonalValues2;
-  int duplicationDetected = 0;
 
   int diagonalValuesHistory[Rank][2];
 
@@ -453,7 +450,7 @@ void MovePairSearch::MoveRows()
 
 #ifndef __SSE2__
       // Duplicate check
-      duplicationDetected = ((0 != (diagonalValues1 & bit1)) || (0 != (diagonalValues2 & bit2)));
+      int duplicationDetected = ((0 != (diagonalValues1 & bit1)) || (0 != (diagonalValues2 & bit2)));
 
         // Process the results of checking the square for diagonality
         if (!duplicationDetected)

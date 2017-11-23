@@ -22,6 +22,10 @@ ifeq ($(Native),1)
 # Tune for machine where app is compiled
 CXXFLAGS += -march=native -mtune=native
 else
+ifeq ($(AVX512),1)
+# AVX512+BMI2, 64-bit
+CXXFLAGS += -march=core2 -mtune=generic -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2 -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq -m64
+else
 ifeq ($(AVX2),1)
 # AVX2+BMI2, 64-bit
 CXXFLAGS += -march=core2 -mtune=generic -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2 -m64
@@ -33,6 +37,7 @@ else
 ifeq ($(SSE2),1)
 # SSE2, 64-bit
 CXXFLAGS += -march=core2 -mtune=generic -m64
+endif
 endif
 endif
 endif

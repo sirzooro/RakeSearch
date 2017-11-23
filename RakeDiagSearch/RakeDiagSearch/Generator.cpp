@@ -1,7 +1,28 @@
 // DLS generator
 
-# include "Generator.h"
-# include "MovePairSearch.h"
+#include "Generator.h"
+#include "MovePairSearch.h"
+#include <string.h>
+
+#define GetBit(bitfield, bitno) ((bitfield) & (1u << (bitno)))
+#define SetBit(bitfield, bitno) ((bitfield) |= (1u << (bitno)))
+#define ClearBit(bitfield, bitno) ((bitfield) &= ~(1u << (bitno)))
+
+#define AllBitsMask(numbits) ((1u << (numbits)) - 1)
+
+// Used = 0, Free = 1, Code now uses bits, so dedicated macros would be helpful.
+#define SetUsed(bitfield, bitno) ClearBit(bitfield, bitno)
+#define SetFree(bitfield, bitno) SetBit(bitfield, bitno)
+
+#define IsUsed(bitfield, bitno) (0 == GetBit(bitfield, bitno))
+#define IsFree(bitfield, bitno) (0 != GetBit(bitfield, bitno))
+
+#define AllFree AllBitsMask(Rank)
+
+#define GetBit01(bitfield, bitno) (GetBit(bitfield, bitno) ? 1 : 0)
+
+#define ffs __builtin_ffs
+
 
 using namespace std;
 
@@ -17,7 +38,7 @@ Generator::Generator()
 
 
 // Copy constructor
-Generator::Generator(Generator& source)
+Generator::Generator(const Generator& source)
 {
   CopyState(source);
 }
@@ -43,20 +64,14 @@ void Generator::Reset()
     }
 
     // Reset the values in the vectors of diagonal elements usage
-    for (int i = 0; i < Rank; i++)
-    {
-      primary[i] = Free;
-      secondary[i] = Free;
-    }
+    primary = AllFree;
+    secondary = AllFree;
 
     // Reset the values in the matrices of rows/columns elements usage
     for (int i = 0; i < Rank; i++)
     {
-      for (int j = 0; j < Rank; j++)
-      {
-        columns[i][j] = Free;
-        rows[i][j] = Free;
-      }
+      columns[i] = AllFree;
+      rows[i] = AllFree;
     }
 
     // Reset the values in the cube of the history of cell values usage
@@ -64,10 +79,7 @@ void Generator::Reset()
     {
       for (int j = 0; j < Rank; j++)
       {
-        for (int h = 0; h < Rank; h++)
-        {
-          cellsHistory[i][j][h] = Free;
-        }
+        cellsHistory[i][j] = AllFree;
       }
     }
 
@@ -92,7 +104,7 @@ void Generator::Reset()
 
 
 // Initialize the generator
-void Generator::Initialize(string start, string result, string checkpoint, string temp)
+void Generator::Initialize(const string& start, const string& result, const string& checkpoint, const string& temp)
 {
   fstream startFile;
   fstream checkpointFile;
@@ -150,8 +162,8 @@ return is;
 void Generator::Read(std::istream& is)
 {
   int rankToVerify;
-  int result = Yes;
   string marker;
+  int val;
 
   // Reset initialization flag
   isInitialized = No;
@@ -194,43 +206,58 @@ void Generator::Read(std::istream& is)
 
     // Read the information about used values and the history of values
       // Read the information about the main diagonal values
+      primary = 0;
       for (int i = 0; i < Rank; i++)
       {
-        is >> primary[i];
+        is >> val;
+        if (val)
+          SetBit(primary, i);
       }
 
       // Read the information about the secondary diagonal values
+      secondary = 0;
       for (int i = 0; i < Rank; i++)
       {
-        is >> secondary[i];
+        is >> val;
+        if (val)
+          SetBit(secondary, i);
       }
 
       // Read the information about values in rows
+      memset(rows, 0, sizeof(rows));
       for (int i = 0; i < Rank; i++)
       {
         for (int j = 0; j < Rank; j++)
         {
-          is >> rows[i][j];
+          is >> val;
+          if (val)
+            SetBit(rows[i], j);
         }
       }
 
       // Read the information about values in columns
+      memset(columns, 0, sizeof(columns));
       for (int i = 0; i < Rank; i++)
       {
         for (int j = 0; j < Rank; j++)
         {
-          is >> columns[i][j];
+          is >> val;
+          if (val)
+            SetBit(columns[j], i);
         }
       }
 
       // Read the information about the history of values in square cells
+      memset(cellsHistory, 0, sizeof(cellsHistory));
       for (int h = 0; h < Rank; h++)
       {
         for (int i = 0; i < Rank; i++)
         {
           for (int j = 0; j < Rank; j++)
           {
-            is >> cellsHistory[i][j][h];
+            is >> val;
+            if (val)
+              SetBit(cellsHistory[i][j], h);
           }
         }  
       }  
@@ -282,14 +309,14 @@ void Generator::Write(std::ostream& os)
     // Write the information about main diagonal values
     for (int i = 0; i < Rank; i++)
     {
-      os << primary[i] << " ";
+      os << GetBit01(primary, i) << " ";
     }
     os << endl;
 
     // Write the information about secondary diagonal values
     for (int i = 0; i < Rank; i++)
     {
-      os << secondary[i] << " ";
+      os << GetBit01(secondary, i) << " ";
     }
     os << endl;
 
@@ -301,7 +328,7 @@ void Generator::Write(std::ostream& os)
     {
       for (int j = 0; j < Rank; j++)
       {
-        os << rows[i][j] << " ";
+        os << GetBit01(rows[i], j) << " ";
       }
       os << endl;
     }
@@ -312,7 +339,7 @@ void Generator::Write(std::ostream& os)
     {
       for (int j = 0; j < Rank; j++)
       {
-        os << columns[i][j] << " ";
+        os << GetBit01(columns[j], i) << " ";
       }
       os << endl;
     }
@@ -325,7 +352,7 @@ void Generator::Write(std::ostream& os)
       {
         for (int j = 0; j < Rank; j++)
         {
-          os << cellsHistory[i][j][h] << " ";
+          os << GetBit01(cellsHistory[i][j], h) << " ";
         }
         os << endl;
       }
@@ -339,7 +366,7 @@ void Generator::Write(std::ostream& os)
 
 
 // Assignment operator
-Generator& Generator::operator = (Generator& value)
+Generator& Generator::operator = (const Generator& value)
 {
   CopyState(value);
 
@@ -348,45 +375,23 @@ return *this;
 
 
 // Copy the state from the given object
-void Generator::CopyState(Generator& source)
+void Generator::CopyState(const Generator& source)
 {
   // Copy variables connected with the path of cells bypassing
-  for (int i = 0; i < cellsInPath; i++)
-  {
-    path[i][0] = source.path[i][0];
-    path[i][1] = source.path[i][1];
-  }
+  memcpy(path, source.path, sizeof(path[0][0]) * 2 * cellsInPath);
 
   keyRowId = source.keyRowId;
   keyColumnId = source.keyColumnId;
   keyValue = source.keyValue;
 
   // Copy the flag arrays of used values
-  for (int i = 0; i < Rank; i++)
-  {
-    primary[i] = source.primary[i];
-    secondary[i] = source.secondary[i];
-  }
+  primary = source.primary;
+  secondary = source.secondary;
 
-  for (int i = 0; i < Rank; i++)
-  {
-    for (int j = 0; j < Rank; j++)
-    {
-      columns[i][j] = source.columns[i][j];
-      rows[i][j] = source.rows[i][j];
-    }
-  }
+  memcpy(columns, source.columns, sizeof(columns));
+  memcpy(rows, source.rows, sizeof(rows));
 
-  for (int i = 0; i < Rank; i++)
-  {
-    for (int j = 0; j < Rank; j++)
-    {
-      for (int h = 0; h < Rank; h++)
-      {
-        cellsHistory[i][j][h] = source.cellsHistory[i][j][h];
-      }
-    }
-  }
+  memcpy(cellsHistory, source.cellsHistory, sizeof(cellsHistory));
 
   // Copy the filenames
   startParametersFileName = source.startParametersFileName;
@@ -410,7 +415,7 @@ void Generator::CopyState(Generator& source)
 
 
 // Set names for the files of parameters and checkpoints
-void Generator::SetFileNames(string start, string result, string checkpoint, string temp)
+void Generator::SetFileNames(const string& start, const string& result, const string& checkpoint, const string& temp)
 {
   startParametersFileName = start;
   resultFileName = result;
@@ -440,7 +445,6 @@ void Generator::CreateCheckpoint()
 // Start the squares generation
 void Generator::Start()
 {
-  int isGet;        // Flag of getting new value for the cell
   int cellValue;    // New value for the cell
   int oldCellValue; // Old value from the cell
 
@@ -457,49 +461,28 @@ void Generator::Start()
         columnId = path[cellId][1];
 
         // Generate new value for the cell (rowId, columnId)
-          // Reset variables values
-          isGet = 0;
-          cellValue = Square::Empty;
-
           // Select the value for the cell
-          for (int i = 0; i < Rank && !isGet; i++)
+          // Check the i value for possibility to be written into the cell (rowId, columnId)
+          cellValue = columns[columnId] & rows[rowId] & cellsHistory[rowId][columnId];
+
+          // Test the value: has it been used in diagonals
+          // Test the main diagonal
+          if(columnId == rowId)
           {
-            // Check the i value for possibility to be written into the cell (rowId, columnId)
-            if (columns[i][columnId] && rows[rowId][i] && cellsHistory[rowId][columnId][i])
-            {
-              // The value is not used in rows and columns, the diagonals are to check
-                // Set the flag which may be unset by diagonal checking
-                isGet = 1;
-                // Test the value: has it been used in diagonals
-                  // Test the main diagonal
-                  if(columnId == rowId)
-                  {
-                    if (!primary[i])
-                    {
-                      isGet = 0;
-                    }
-                  }
+            cellValue &= primary;
+          }
 
-                  // Test the secondary diagonal
-                  if (rowId == Rank - 1 - columnId)
-                  {
-                    if (!secondary[i])
-                    {
-                      isGet = 0;
-                    }
-                  }
-            }
-
-            // Remember the value found in the cycle
-            if (isGet)
-            {
-              cellValue = i;
-            }
+          // Test the secondary diagonal
+          if (rowId == Rank - 1 - columnId)
+          {
+            cellValue &= secondary;
           }
 
         // Process the search result
-        if (isGet)
+        if (cellValue)
         {
+          // Get index of first bit set
+          cellValue = ffs(cellValue) - 1;
           // Process the new found value
             // Read the current value
             oldCellValue = newSquare.Matrix[rowId][columnId];
@@ -507,36 +490,36 @@ void Generator::Start()
               // Write the value into the square
               newSquare.Matrix[rowId][columnId] = cellValue;
               // Mark the value in columns
-              columns[cellValue][columnId] = Used;
+              SetUsed(columns[columnId], cellValue);
               // Mark the value in rows
-              rows[rowId][cellValue] = Used;
+              SetUsed(rows[rowId], cellValue);
               // Mark the value in diagonals
               if (rowId == columnId)
               {
-                primary[cellValue] = Used;
+                SetUsed(primary, cellValue);
               }
               if (rowId == Rank - 1 - columnId)
               {
-                secondary[cellValue] = Used;
+                SetUsed(secondary, cellValue);
               }
               // Mark the value in the history of cell values
-              cellsHistory[rowId][columnId][cellValue] = Used;
+              SetUsed(cellsHistory[rowId][columnId], cellValue);
 
             // Restore the previous value without clearing the history (because we are working with this cell)
             if (oldCellValue != Square::Empty)
             {
               // Restore the value into columns
-              columns[oldCellValue][columnId] = Free;
+              SetFree(columns[columnId], oldCellValue);
               // Restore the value into rows
-              rows[rowId][oldCellValue] = Free;
+              SetFree(rows[rowId], oldCellValue);
               // Restore the value into diagonals
               if (rowId == columnId)
               {
-                primary[oldCellValue] = Free;
+                SetFree(primary, oldCellValue);
               }
               if (rowId == Rank - 1 - columnId)
               {
-                secondary[oldCellValue] = Free;
+                SetFree(secondary, oldCellValue);
               }
             }
 
@@ -562,25 +545,22 @@ void Generator::Start()
               if (cellValue != Square::Empty)
               {
                 // Restore the value into columns
-                columns[cellValue][columnId] = Free;
+                SetFree(columns[columnId], cellValue);
                 // Restore the value into rows
-                rows[rowId][cellValue] = Free;
+                SetFree(rows[rowId], cellValue);
                 // Restore the value into diagonals
                 if (rowId == columnId)
                 {
-                  primary[cellValue] = Free;
+                  SetFree(primary, cellValue);
                 }
                 if (rowId == Rank - 1 - columnId)
                 {
-                  secondary[cellValue] = Free;
+                  SetFree(secondary, cellValue);
                 }
                 // Reset the cell of the square
                 newSquare.Matrix[rowId][columnId] = Square::Empty;
                 // Clear the history of the cell (rowId, columnId)
-                for (int i = 0; i < Rank; i++)
-                {
-                  cellsHistory[rowId][columnId][i] = 1;
-                }
+                cellsHistory[rowId][columnId] = AllBitsMask(Rank);
               }
 
             // Step backward
@@ -636,4 +616,3 @@ void Generator::ProcessSquare()
     subscriber->OnSquareGenerated(newSquare);
   }
 }
-
