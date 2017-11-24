@@ -3,6 +3,7 @@
 #include "Generator.h"
 #include "MovePairSearch.h"
 #include <string.h>
+#include <type_traits>
 
 #define GetBit(bitfield, bitno) ((bitfield) & (1u << (bitno)))
 #define SetBit(bitfield, bitno) ((bitfield) |= (1u << (bitno)))
@@ -445,15 +446,32 @@ void Generator::CreateCheckpoint()
 // Start the squares generation
 void Generator::Start()
 {
+  // Check value of keyValue and pass result as a type to StartImpl
+  if (keyValue == Square::Empty)
+    StartImpl<true_type>();
+  else
+    StartImpl<false_type>();
+}
+
+// Actual implementation of the squares generation
+template<typename IsKeyValueEmpty>
+inline void Generator::StartImpl()
+{
   int cellValue;    // New value for the cell
   int oldCellValue; // Old value from the cell
 
   int stop = 0;     // Flag of finishing the computing
 
+  // Create constant copies of used fields to speedup calculations
+  const int cellsInPath = this->cellsInPath;
+  const int keyValue = this->keyValue;
+  const int keyRowId = this->keyRowId;
+  const int keyColumnId = this->keyColumnId;
+
   if (isInitialized == Yes)
   {
     // Selection of the cells values
-    do
+    while(1)
     {
       // Selection of the value for the next cell
         // Read coordinates of the cell
@@ -565,27 +583,28 @@ void Generator::Start()
 
             // Step backward
             cellId--;
+
+            // Check the finish condition of search
+            if (IsKeyValueEmpty::value)
+            {
+              // Set the flag if the terminal value is "-1" which means we must leave the cell
+              if (cellId < 0 && newSquare.Matrix[keyRowId][keyColumnId] == Square::Empty)
+              {
+                break;
+              }
+            }
         }
 
-        // Check the finish condition of search 
-        if (keyValue == Square::Empty)
-        {
-          // Set the flag if the terminal value is "-1" which means we must leave the cell
-          if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue && cellId < 0)
-          {
-            stop = Yes;
-          }
-        }
-        else
+        // Check the finish condition of search
+        if (!IsKeyValueEmpty::value)
         {
           // Set the flag if the terminal value is other
           if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
           {
-            stop = Yes;
+            break;
           }
         }
     }
-    while (!stop);
   }
 }
 

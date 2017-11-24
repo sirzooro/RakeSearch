@@ -4,7 +4,7 @@ BOINC_LIB_DIR = $(BOINC_DIR)/lib
 
 CXX = g++
 
-CXXFLAGS += -O3 -ftree-vectorize -static \
+CXXFLAGS += -O3 -ftree-vectorize -std=c++11 -static \
     -m32 \
     -I$(BOINC_DIR) \
     -I$(BOINC_LIB_DIR) \

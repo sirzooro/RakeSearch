@@ -72,6 +72,10 @@ private:
 	void CreateCheckpoint();				// Create a checkpoint
 	void ProcessSquare();					// Process the found square
 
+	template<typename IsKeyValueEmpty>
+	void StartImpl();					// Actual implementation of the squares generation
+
+
 	string generatorStateHeader;			// Header preceding the data about search state in start parameters file or a checkpoint file
 	MovePairSearch* subscriber;			    // Object of DLS search by rows permutation
 };
