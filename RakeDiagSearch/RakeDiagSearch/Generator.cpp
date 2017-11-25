@@ -460,8 +460,6 @@ inline void Generator::StartImpl()
   int cellValue;    // New value for the cell
   int oldCellValue; // Old value from the cell
 
-  int stop = 0;     // Flag of finishing the computing
-
   // Create constant copies of used fields to speedup calculations
   const int cellsInPath = this->cellsInPath;
   const int keyValue = this->keyValue;
