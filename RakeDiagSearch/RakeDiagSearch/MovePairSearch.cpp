@@ -89,7 +89,7 @@ MovePairSearch::MovePairSearch()
 // Initialize mask4to1bits lookup table
 void MovePairSearch::InitMask4to1bits()
 {
-#if defined(__SSE2__) && !defined(__AVX2__)
+#if defined(__SSE2__) && (!defined(__AVX2__) || defined(DISABLE_PEXT))
   memset(mask4to1bits, 0, sizeof(mask4to1bits));
   mask4to1bits[0x0000] = 0;
   mask4to1bits[0x000f] = 1;
@@ -533,8 +533,13 @@ void MovePairSearch::MoveRows()
             vCol1 = _mm256_cmpeq_epi32(vCol1, _mm256_setzero_si256());
             // create mask from vector
             // there are 4 bits per result, so we need to extract every 4th one
-            int mask = _mm256_movemask_epi8(vCol1);
+            unsigned int mask = _mm256_movemask_epi8(vCol1);
+#ifndef DISABLE_PEXT
             mask = _pext_u32(mask, 0x11111111);
+#else
+            // PEXT instruction is very slow on AMD Ryzen/Threadripper, so alternative for them is needed
+            mask = mask4to1bits[mask & 0xFFFF] | (mask4to1bits[mask >> 16] << 4);
+#endif
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;

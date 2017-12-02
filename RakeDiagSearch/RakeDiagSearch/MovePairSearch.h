@@ -67,7 +67,7 @@ private:
   string moveSearchComponentHeader; // Header preceding the data about the state of the component of rows permutation
   static const bool isDebug = false; // Flag of displaying debug information
 
-#if defined(__SSE2__) && !defined(__AVX2__)
+#if defined(__SSE2__) && (!defined(__AVX2__) || defined(DISABLE_PEXT))
   unsigned char mask4to1bits[0x10000]; // Lookup table to map 4 bit packs returned by movemask to 1 bit
 #endif
 };
