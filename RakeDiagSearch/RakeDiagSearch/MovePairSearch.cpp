@@ -6,6 +6,9 @@
 #ifdef __SSE2__
 #include "immintrin.h"
 #endif
+#ifdef __ARM_NEON
+#include "arm_neon.h"
+#endif
 
 #ifndef _MSC_VER
 #define ffs __builtin_ffs
@@ -329,7 +332,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
       squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
-#ifdef __SSE2__
+#if defined (__SSE2__) || defined(__ARM_NEON)
       squareA_MaskT[j][i] = squareA_Mask[i][j];
 #endif
     }
@@ -411,7 +414,7 @@ void MovePairSearch::MoveRows()
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
 
-#ifndef __SSE2__
+#if !defined (__SSE2__) && !defined(__ARM_NEON)
   // For non-vectorized builds start from 1st row, and mark all rows except 0th as candidates
   currentRowId = 1;
   rowCandidates = AllBitsMask(Rank) & ~1u;
@@ -429,6 +432,13 @@ void MovePairSearch::MoveRows()
 
   diagonalValues1 = diagonalValuesHistory[0][0];
   diagonalValues2 = diagonalValuesHistory[0][1];
+
+#ifdef __ARM_NEON
+  // Set the powers of 2
+  const uint32_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
+  const uint32x4_t vPowersOf2Lo = vld1q_u32(powersOf2);
+  const uint32x4_t vPowersOf2Hi = vld1q_u32(powersOf2+4);
+#endif
 
   while (1)
   {
@@ -448,7 +458,7 @@ void MovePairSearch::MoveRows()
       int bit1 = squareA_Mask[gettingRowId][currentRowId];
       int bit2 = squareA_Mask[gettingRowId][Rank - 1 - currentRowId];
 
-#ifndef __SSE2__
+#if !defined(__SSE2__) && !defined(__ARM_NEON)
       // Duplicate check
       int duplicationDetected = ((0 != (diagonalValues1 & bit1)) || (0 != (diagonalValues2 & bit2)));
 
@@ -485,7 +495,7 @@ void MovePairSearch::MoveRows()
             // Mark the row in the array of the used rows
             ClearBit(rowsUsage, gettingRowId);
 
-#ifndef __SSE2__
+#if !defined(__SSE2__) && !defined(__ARM_NEON)
             // Set new row candidates
             rowCandidates = rowsUsage;
 #endif
@@ -560,6 +570,39 @@ void MovePairSearch::MoveRows()
             int mask1 = _mm_movemask_epi8(vCol1a);
             int mask2 = _mm_movemask_epi8(vCol1b);
             int mask = mask4to1bits[mask1] | (mask4to1bits[mask2] << 4);
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#elif defined(__ARM_NEON)
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            uint32x4_t vCol1a = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
+            uint32x4_t vCol1b = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
+            uint32x4_t vCol2a = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            uint32x4_t vCol2b = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+
+            // AND loaded values with diagnonal masks
+            uint32x4_t vDiagMask1 = vdupq_n_u32(diagonalValues1);
+            uint32x4_t vDiagMask2 = vdupq_n_u32(diagonalValues2);
+
+            vCol1a = vandq_u32(vCol1a, vDiagMask1);
+            vCol1b = vandq_u32(vCol1b, vDiagMask1);
+            vCol2a = vandq_u32(vCol2a, vDiagMask2);
+            vCol2b = vandq_u32(vCol2b, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1a = vorrq_u32(vCol1a, vCol2a);
+            vCol1b = vorrq_u32(vCol1b, vCol2b);
+
+            // check if result is zero
+            vCol1a = vceqq_u32(vCol1a, vdupq_n_u32(0));
+            vCol1b = vceqq_u32(vCol1b, vdupq_n_u32(0));
+
+            // create mask from vector
+            uint32x4_t v = vorrq_u32(vandq_u32(vCol1a, vPowersOf2Lo), vandq_u32(vCol1b, vPowersOf2Hi));
+            uint32_t mask = vaddvq_u64(vpaddlq_u32(v));
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
