@@ -8,6 +8,11 @@
 #include <cpuid.h>
 #include <stdio.h>
 #endif
+#ifdef __arm__
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+#include <stdio.h>
+#endif
 
 using namespace std;
 
@@ -228,5 +233,19 @@ void CheckCpuid()
     exit(1);
   }
 #endif
+}
+#endif
+
+// Check if ARM CPU supports NEON instructions if required. For AARCH64 they are always present,
+// so no need to check them here.
+#if defined(__arm__) && defined(__ARM_NEON)
+__attribute__((constructor(101)))
+void CheckArmHwcap()
+{
+  if (HWCAP_NEON != (getauxval(AT_HWCAP) & HWCAP_NEON))
+  {
+    fprintf(stderr, "NEON instructions are not supported by your CPU!\n");
+    exit(1);
+  }
 }
 #endif

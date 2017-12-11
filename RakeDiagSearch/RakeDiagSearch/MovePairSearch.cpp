@@ -436,8 +436,15 @@ void MovePairSearch::MoveRows()
 #ifdef __ARM_NEON
   // Set the powers of 2
   const uint32_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
+#ifdef __aarch64__
   const uint32x4_t vPowersOf2Lo = vld1q_u32(powersOf2);
   const uint32x4_t vPowersOf2Hi = vld1q_u32(powersOf2+4);
+#else
+  const uint32x2_t vPowersOf2_1 = vld1_u32(powersOf2);
+  const uint32x2_t vPowersOf2_2 = vld1_u32(powersOf2+2);
+  const uint32x2_t vPowersOf2_3 = vld1_u32(powersOf2+4);
+  const uint32x2_t vPowersOf2_4 = vld1_u32(powersOf2+6);
+#endif
 #endif
 
   while (1)
@@ -579,6 +586,7 @@ void MovePairSearch::MoveRows()
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
 #elif defined(__ARM_NEON)
+#ifdef __aarch64__
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
@@ -611,6 +619,57 @@ void MovePairSearch::MoveRows()
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
+#else // !__aarch64__
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            uint32x2_t vCol1a = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
+            uint32x2_t vCol1b = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][3]);
+            uint32x2_t vCol1c = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
+            uint32x2_t vCol1d = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][7]);
+            
+            uint32x2_t vCol2a = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            uint32x2_t vCol2b = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][3]);
+            uint32x2_t vCol2c = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+            uint32x2_t vCol2d = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][7]);
+
+            // AND loaded values with diagnonal masks
+            uint32x2_t vDiagMask1 = vdup_n_u32(diagonalValues1);
+            uint32x2_t vDiagMask2 = vdup_n_u32(diagonalValues2);
+
+            vCol1a = vand_u32(vCol1a, vDiagMask1);
+            vCol1b = vand_u32(vCol1b, vDiagMask1);
+            vCol1c = vand_u32(vCol1c, vDiagMask1);
+            vCol1d = vand_u32(vCol1d, vDiagMask1);
+            
+            vCol2a = vand_u32(vCol2a, vDiagMask2);
+            vCol2b = vand_u32(vCol2b, vDiagMask2);
+            vCol2c = vand_u32(vCol2c, vDiagMask2);
+            vCol2d = vand_u32(vCol2d, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1a = vorr_u32(vCol1a, vCol2a);
+            vCol1b = vorr_u32(vCol1b, vCol2b);
+            vCol1c = vorr_u32(vCol1c, vCol2c);
+            vCol1d = vorr_u32(vCol1d, vCol2d);
+
+            // check if result is zero
+            vCol1a = vceq_u32(vCol1a, vdup_n_u32(0));
+            vCol1b = vceq_u32(vCol1b, vdup_n_u32(0));
+            vCol1c = vceq_u32(vCol1c, vdup_n_u32(0));
+            vCol1d = vceq_u32(vCol1d, vdup_n_u32(0));
+
+            // create mask from vector
+            uint32x2_t v = vorr_u32(
+              vorr_u32(vand_u32(vCol1a, vPowersOf2_1), vand_u32(vCol1b, vPowersOf2_2)),
+              vorr_u32(vand_u32(vCol1c, vPowersOf2_3), vand_u32(vCol1d, vPowersOf2_4)));
+            //uint32_t mask = vaddv_u32(v);
+            uint32_t mask = v[0] + v[1];
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#endif
 #endif // AVX2/SSE2
           }
         }

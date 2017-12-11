@@ -49,7 +49,13 @@ ifeq ($(SSE2),1)
 $(info ===== Compiling SSE2 app version =====)
 CXXFLAGS += -march=core2 -mtune=generic -m64
 else
+ifeq ($(NEON),1)
+# NEON (ARM only)
+$(info ===== Compiling ARM NEON app version =====)
+CXXFLAGS += -mfloat-abi=hard -mfpu=neon
+else
 $(info ===== Compiling default app version =====)
+endif
 endif
 endif
 endif
