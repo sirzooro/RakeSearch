@@ -11,12 +11,15 @@ CXXFLAGS += -O3 -ftree-vectorize -std=c++11 -static-libgcc -static-libstdc++ \
     -L$(BOINC_API_DIR) \
     -L$(BOINC_LIB_DIR) \
 
+PTHREAD = -pthread
+
 PROGRAM = rakesearch
 
 ifeq ($(MinGW),1)
 $(info ===== Compiling MinGW app version =====)
 PROGRAM = rakesearch.exe
 CXX = x86_64-w64-mingw32-g++
+PTHREAD = -static -pthread
 endif
 
 ifeq ($(Native),1)
@@ -69,7 +72,7 @@ clean:
 	rm -f $(PROGRAM) *.o
 
 $(PROGRAM): main.o Square.o Generator.o MovePairSearch.o $(BOINC_LIB_DIR)/libboinc.a $(BOINC_API_DIR)/libboinc_api.a
-	$(CXX) $(CXXFLAGS) -o $(PROGRAM) main.o Square.o Generator.o MovePairSearch.o -pthread -lboinc_api -lboinc
+	$(CXX) $(CXXFLAGS) -o $(PROGRAM) main.o Square.o Generator.o MovePairSearch.o $(PTHREAD) -lboinc_api -lboinc
 
 Square.o: Square.cpp
 	$(CXX) $(CXXFLAGS) -c Square.cpp
