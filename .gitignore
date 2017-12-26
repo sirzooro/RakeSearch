@@ -41,3 +41,9 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Files created during build
+*.o
+*.bak
+RakeDiagSearch/RakeDiagSearch/rakesearch
+RakeDiagSearch/RakeDiagSearch/rakesearch.exe

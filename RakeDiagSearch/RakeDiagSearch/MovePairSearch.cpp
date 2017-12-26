@@ -1,12 +1,113 @@
 // Search for pairs of diagonal Latin squares by the method of rows permutation
 
-# include "MovePairSearch.h"
-# include "boinc_api.h"
+#include "MovePairSearch.h"
+#include "boinc_api.h"
+
+#ifdef __SSE2__
+#include "immintrin.h"
+#endif
+#ifdef __ARM_NEON
+#include "arm_neon.h"
+#endif
+
+#ifndef _MSC_VER
+#define ffs __builtin_ffs
+#else
+#include <intrin.h>
+inline int ffs(int i)
+{
+  unsigned long index;
+  if (_BitScanForward(&index, i))
+    return index + 1;
+  else
+    return 0;
+}
+#endif
+
+#define SetBit(bitfield, bitno) ((bitfield) |= (1u << (bitno)))
+#define ClearBit(bitfield, bitno) ((bitfield) &= ~(1u << (bitno)))
+
+#define AllBitsMask(numbits) ((1u << (numbits)) - 1)
+
+inline void MovePairSearch::CopyRow(int* __restrict dst, int* __restrict src)
+{
+  int n = 0;
+#ifdef __AVX__
+  for (; n < Rank - 7; n += 8)
+  {
+    __m256i v = _mm256_loadu_si256((const __m256i*)&src[n]);
+    _mm256_storeu_si256((__m256i*)&dst[n], v);
+  }
+#endif
+#ifdef __SSE2__
+  for (; n < Rank - 3; n += 4)
+  {
+    __m128i v = _mm_loadu_si128((const __m128i*)&src[n]);
+    _mm_storeu_si128((__m128i*)&dst[n], v);
+  }
+#endif
+  for (; n < Rank; n++)
+  {
+    dst[n] = src[n];
+  }
+}
+
+inline void MovePairSearch::SetRow(int* dst, int val)
+{
+  int n = 0;
+#ifdef __AVX__
+  __m256i v_avx = _mm256_set1_epi32(val);
+  for (; n < Rank - 7; n += 8)
+  {
+    _mm256_storeu_si256((__m256i*)&dst[n], v_avx);
+  }
+#endif
+#ifdef __SSE2__
+#ifdef __AVX__
+  __m128i v_sse = _mm256_castsi256_si128(v_avx);
+#else
+  __m128i v_sse = _mm_set1_epi32(val);
+#endif
+  for (; n < Rank - 3; n += 4)
+  {
+    _mm_storeu_si128((__m128i*)&dst[n], v_sse);
+  }
+#endif
+  for (; n < Rank; n++)
+  {
+    dst[n] = val;
+  }
+}
 
 // Default constructor
 MovePairSearch::MovePairSearch()
 {
   Reset();
+  InitMask4to1bits();
+}
+
+// Initialize mask4to1bits lookup table
+void MovePairSearch::InitMask4to1bits()
+{
+#if defined(__SSE2__) && (!defined(__AVX2__) || defined(DISABLE_PEXT))
+  memset(mask4to1bits, 0, sizeof(mask4to1bits));
+  mask4to1bits[0x0000] = 0;
+  mask4to1bits[0x000f] = 1;
+  mask4to1bits[0x00f0] = 2;
+  mask4to1bits[0x00ff] = 3;
+  mask4to1bits[0x0f00] = 4;
+  mask4to1bits[0x0f0f] = 5;
+  mask4to1bits[0x0ff0] = 6;
+  mask4to1bits[0x0fff] = 7;
+  mask4to1bits[0xf000] = 8;
+  mask4to1bits[0xf00f] = 9;
+  mask4to1bits[0xf0f0] = 10;
+  mask4to1bits[0xf0ff] = 11;
+  mask4to1bits[0xff00] = 12;
+  mask4to1bits[0xff0f] = 13;
+  mask4to1bits[0xfff0] = 14;
+  mask4to1bits[0xffff] = 15;
+#endif
 }
 
 // Reset search settings
@@ -41,7 +142,7 @@ void MovePairSearch::Reset()
 // Reset the variables before the next search
 void MovePairSearch::ClearBeforeNextSearch()
 {
-  // Reset the values of matrices of squares A and B, 
+  // Reset the values of matrices of squares A and B,
   // also the matrix of rows usage when forming square B
   for (int i = 0; i < Rank; i++)
   {
@@ -49,15 +150,14 @@ void MovePairSearch::ClearBeforeNextSearch()
     {
       squareA[i][j] = -1;
       squareB[i][j] = -1;
-      rowsHistory[i][j] = 1;
     }
+    rowsHistory[i] = AllBitsMask(Rank);
   }
 
   // Reset the values in the vectors of rows usage in the next permutation
   // and the rows numbers used for the current square
   for (int i = 0; i < Rank; i++)
   {
-    rowsUsage[i] = 1;
     currentSquareRows[i] = -1;
   }
 
@@ -67,7 +167,7 @@ void MovePairSearch::ClearBeforeNextSearch()
 
 
 // Search initialization
-void MovePairSearch::InitializeMoveSearch(string start, string result, 
+void MovePairSearch::InitializeMoveSearch(string start, string result,
                                        string checkpoint, string temp)
 {
   fstream startFile;
@@ -79,7 +179,7 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
   checkpointFileName = checkpoint;
   tempCheckpointFileName = temp;
 
-  // Read the generator state and the search state from the checkpoint file or initial values 
+  // Read the generator state and the search state from the checkpoint file or initial values
     // Open files with initial parameters and the checkpoint file
     startFile.open(startParametersFileName.c_str(), std::ios_base::in);
     checkpointFile.open(checkpointFileName.c_str(), std::ios_base::in);
@@ -133,7 +233,7 @@ void MovePairSearch::Read(istream& is)
 		}
     }
     while (marker != moveSearchGlobalHeader);
-    
+
     // Read the state of the DLS generator
     is >> squareAGenerator;
 
@@ -206,7 +306,7 @@ void MovePairSearch::CreateCheckpoint()
 void MovePairSearch::StartMoveSearch()
 {
   // Subscribe to the event of finding a DLS
-  squareAGenerator.Subscribe(this); 
+  squareAGenerator.Subscribe(this);
 
   // Start DLS generation
   squareAGenerator.Start();
@@ -219,7 +319,7 @@ void MovePairSearch::StartMoveSearch()
 }
 
 
-// Event processor of DLS generation, will start the search for its pair 
+// Event processor of DLS generation, will start the search for its pair
 void MovePairSearch::OnSquareGenerated(Square newSquare)
 {
   // Reset before the search for orthogonal squares
@@ -231,6 +331,10 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     for (int j = 0; j < Rank; j++)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
+      squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
+#if defined (__SSE2__) || defined(__ARM_NEON)
+      squareA_MaskT[j][i] = squareA_Mask[i][j];
+#endif
     }
   }
 
@@ -246,14 +350,14 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   // Gather statistics on the processed squares
   totalProcessedSquaresSmall++;
 
-  // Fix the information about state of processing 
+  // Fix the information about state of processing
   if (totalProcessedSquaresSmall % CheckpointInterval == 0)
   {
     // Update the completion progress for the BOINC client
     double fraction_done;
     if(Rank == 8)
       fraction_done = (double)(totalProcessedSquaresSmall)/5000000.0;
-    else 
+    else
     {
       if(Rank == 9)
         fraction_done = (double)(totalProcessedSquaresSmall)/275000000.0;
@@ -271,7 +375,7 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
     if (boinc_time_to_checkpoint()) {
       CreateCheckpoint();
       boinc_checkpoint_completed(); // BOINC client knows the checkpoint has been created
-    }  
+    }
 
     if(isDebug)
     {
@@ -285,135 +389,288 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
   }
 }
 
+#define DBG_UP()
+#define DBG_DOWN()
+
 // Permute the rows of the given DLS, trying to find ODLS for it
 void MovePairSearch::MoveRows()
 {
-  int currentRowId = 1;
-  int isRowGet = 0;
+  int currentRowId;
   int gettingRowId = -1;
-  int oldRowId = -1;
 
-  int diagonalValues[Rank];
-  int duplicationDetected = 0;
+  int diagonalValues1, diagonalValues2;
+
+  int diagonalValuesHistory[Rank][2];
+
+  int rowsUsage; // Flags of the rows usage at the current moment; rowsUsage[number of the row] = 0 | 1, where 0 means the row is already used, 1 - not.
+
+  int rowCandidates; // Rows which still have to be checked
 
   // Write the 1st row of square A into square B for the search of normalized squares
-  for (int j = 0; j < Rank; j++)
-  {
-    squareB[0][j] = squareA[0][j];
-  }
+  CopyRow(&squareB[0][0], &squareA[0][0]);
 
   // Mark the usage of the 1st row, because it is fixed
-  rowsUsage[0] = 0;
-  rowsHistory[0][0] = 0;
+  rowsUsage = AllBitsMask(Rank) & ~1u;
+  ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
 
-  while (currentRowId > 0)
+#if !defined (__SSE2__) && !defined(__ARM_NEON)
+  // For non-vectorized builds start from 1st row, and mark all rows except 0th as candidates
+  currentRowId = 1;
+  rowCandidates = AllBitsMask(Rank) & ~1u;
+#else
+  // SSE2/AVX2 version performs duplicate check when it steps forward to next row
+  // and saves result as a candidates. So we have to start from 0th row and
+  // mark it as the only candidate in order to perform duplicate check for 1st row.
+  currentRowId = 0;
+  rowCandidates = 1;
+#endif
+
+  // Set bits for diagonal values in 1st row
+  diagonalValuesHistory[0][0] = 1u << squareB[0][0];
+  diagonalValuesHistory[0][1] = 1u << squareB[0][Rank - 1];
+
+  diagonalValues1 = diagonalValuesHistory[0][0];
+  diagonalValues2 = diagonalValuesHistory[0][1];
+
+#ifdef __ARM_NEON
+  // Set the powers of 2
+  const uint32_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
+#ifdef __aarch64__
+  const uint32x4_t vPowersOf2Lo = vld1q_u32(powersOf2);
+  const uint32x4_t vPowersOf2Hi = vld1q_u32(powersOf2+4);
+#else
+  const uint32x2_t vPowersOf2_1 = vld1_u32(powersOf2);
+  const uint32x2_t vPowersOf2_2 = vld1_u32(powersOf2+2);
+  const uint32x2_t vPowersOf2_3 = vld1_u32(powersOf2+4);
+  const uint32x2_t vPowersOf2_4 = vld1_u32(powersOf2+6);
+#endif
+#endif
+
+  while (1)
   {
     // Select a row from the initial square for the position currentRowId of the generated square
-    isRowGet = 0;
-    gettingRowId = -1;
-    for (int i = 0; i < Rank; i++)
-    {
-      // Check the i-th row of the initial square
-      if (rowsUsage[i] && rowsHistory[currentRowId][i])
-      {
-        isRowGet = 1;
-        gettingRowId = i;
-
-        break;
-      }
-    }
-
     // Process the search result
-    if (isRowGet)
+    if (rowCandidates)
     {
+      gettingRowId = ffs(rowCandidates) - 1;
       // Process the new found row
-        // Write the new row into the square
-          // Read the number of the row which is now in the square
-          oldRowId = currentSquareRows[currentRowId];
-          // Write the new row into the square, the flags array of the used rows 
-          // into the history of the used rows, and the array of the current rows
-            // Write the new row into the square
-            for (int j = 0; j < Rank; j++)
-            {
-              squareB[currentRowId][j] = squareA[gettingRowId][j];
-            }
-            // Mark the row in the array of the used rows
-            rowsUsage[gettingRowId] = 0;
-            // Mark the row in the history of the used rows
-            rowsHistory[currentRowId][gettingRowId] = 0;
-            // Write the row into the array of the current rows
-            currentSquareRows[currentRowId] = gettingRowId;
 
-        // Clear usage flags of the previous row
-          // Clear the mark in the array of the used rows
-          if (oldRowId != -1)
-          {
-            rowsUsage[oldRowId] = 1;
-          }
+      // Mark the row in the history of the used rows
+      ClearBit(rowCandidates, gettingRowId);
 
-        // Check diagonality of the generated part of the square 
-          // Clear the flag signalizing about duplicates on diagonals
-          duplicationDetected = 0;
-          // Check the main diagonal
-            // Clear the flags of the used values
-            for (int i = 0; i < Rank; i++)
-            {
-              diagonalValues[i] = 1;
-            }
-            // Check the values on the main diagonal
-            for (int i = 0; i <= currentRowId; i++)
-            {
-              // Check the i-th element on the main diagonal - cell (i, i)
-              if (diagonalValues[squareB[i][i]])
-              {
-                diagonalValues[squareB[i][i]] = 0;
-              }
-              else
-              {
-                duplicationDetected = 1;
-                break;
-              }
-            }
-          // Check the secondary diagonal if needed
-          if (!duplicationDetected)
-          {
-            // Check the secondary diagonal
-              // Clear the flags of the used values
-              for (int i = 0; i < Rank; i++)
-              {
-                diagonalValues[i] = 1;
-              }
-              // Check the values on the secondary diagonal starting from its "tail"
-              for (int i = 0; i <= currentRowId; i++)
-              {
+      // Check diagonality of the generated part of the square
+      // Check the main diagonal and secondary diagonal
+      // Get bits for current row
+      int bit1 = squareA_Mask[gettingRowId][currentRowId];
+      int bit2 = squareA_Mask[gettingRowId][Rank - 1 - currentRowId];
 
-                // Check the i-th value on the secondary diagonal - cell (i, rank - 1 - i)
-                if (diagonalValues[squareB[i][Rank - 1 - i]]) 
-                {
-                  diagonalValues[squareB[i][Rank - 1 - i]] = 0;
-                }
-                else
-                {
-                  duplicationDetected = 1;
-                  break;
-                }
-              }
-          }
+#if !defined(__SSE2__) && !defined(__ARM_NEON)
+      // Duplicate check
+      int duplicationDetected = ((0 != (diagonalValues1 & bit1)) || (0 != (diagonalValues2 & bit2)));
 
         // Process the results of checking the square for diagonality
         if (!duplicationDetected)
+#endif
         {
+          // Write the row into the array of the current rows
+          currentSquareRows[currentRowId] = gettingRowId;
+
           // Step forward depending on the current position
           if (currentRowId == Rank - 1)
           {
+            // Write rows into the square in correct order
+            for (int n = 1; n < Rank; ++n)
+            {
+              CopyRow(&squareB[n][0], &squareA[currentSquareRows[n]][0]);
+            }
+
             // Process the found square
             ProcessOrthoSquare();
           }
           else
           {
+            // Save new bitmasks for diagonal values for further use
+            diagonalValues1 |= bit1;
+            diagonalValues2 |= bit2;
+            diagonalValuesHistory[currentRowId][0] = diagonalValues1;
+            diagonalValuesHistory[currentRowId][1] = diagonalValues2;
+
+            // Save remaining candidates in row history
+            rowsHistory[currentRowId] = rowCandidates;
+
+            // Mark the row in the array of the used rows
+            ClearBit(rowsUsage, gettingRowId);
+
+#if !defined(__SSE2__) && !defined(__ARM_NEON)
+            // Set new row candidates
+            rowCandidates = rowsUsage;
+#endif
+
             // Step forward
             currentRowId++;
+            DBG_UP();
+
+#ifdef __AVX2__
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            __m256i vCol1 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[currentRowId][1]);
+            __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+
+            // AND loaded values with diagnonal masks
+            __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues1);
+            __m256i vDiagMask2 = _mm256_set1_epi32(diagonalValues2);
+
+            vCol1 = _mm256_and_si256(vCol1, vDiagMask1);
+            vCol2 = _mm256_and_si256(vCol2, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1 = _mm256_or_si256(vCol1, vCol2);
+
+#if defined(__AVX512F__) && defined(__AVX512VL__)
+            // check if result is zero and get result as a bitmask
+            __mmask8 resultMask = _mm256_cmpeq_epi32_mask(vCol1, _mm256_setzero_si256());
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (resultMask << 1) & rowsUsage;
+#else // AVX512
+            // check if result is zero
+            vCol1 = _mm256_cmpeq_epi32(vCol1, _mm256_setzero_si256());
+            // create mask from vector
+            // there are 4 bits per result, so we need to extract every 4th one
+            unsigned int mask = _mm256_movemask_epi8(vCol1);
+#ifndef DISABLE_PEXT
+            mask = _pext_u32(mask, 0x11111111);
+#else
+            // PEXT instruction is very slow on AMD Ryzen/Threadripper, so alternative for them is needed
+            mask = mask4to1bits[mask & 0xFFFF] | (mask4to1bits[mask >> 16] << 4);
+#endif
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#endif // AVX512
+#elif defined(__SSE2__)
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            __m128i vCol1a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][1]);
+            __m128i vCol1b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][5]);
+            __m128i vCol2a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            __m128i vCol2b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+
+            // AND loaded values with diagnonal masks
+            __m128i vDiagMask1 = _mm_set1_epi32(diagonalValues1);
+            __m128i vDiagMask2 = _mm_set1_epi32(diagonalValues2);
+
+            vCol1a = _mm_and_si128(vCol1a, vDiagMask1);
+            vCol1b = _mm_and_si128(vCol1b, vDiagMask1);
+            vCol2a = _mm_and_si128(vCol2a, vDiagMask2);
+            vCol2b = _mm_and_si128(vCol2b, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1a = _mm_or_si128(vCol1a, vCol2a);
+            vCol1b = _mm_or_si128(vCol1b, vCol2b);
+
+            // check if result is zero
+            vCol1a = _mm_cmpeq_epi32(vCol1a, _mm_setzero_si128());
+            vCol1b = _mm_cmpeq_epi32(vCol1b, _mm_setzero_si128());
+            // create mask from vector
+            // there are 4 bits per result, so we need to extract every 4th one
+            int mask1 = _mm_movemask_epi8(vCol1a);
+            int mask2 = _mm_movemask_epi8(vCol1b);
+            int mask = mask4to1bits[mask1] | (mask4to1bits[mask2] << 4);
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#elif defined(__ARM_NEON)
+#ifdef __aarch64__
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            uint32x4_t vCol1a = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
+            uint32x4_t vCol1b = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
+            uint32x4_t vCol2a = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            uint32x4_t vCol2b = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+
+            // AND loaded values with diagnonal masks
+            uint32x4_t vDiagMask1 = vdupq_n_u32(diagonalValues1);
+            uint32x4_t vDiagMask2 = vdupq_n_u32(diagonalValues2);
+
+            vCol1a = vandq_u32(vCol1a, vDiagMask1);
+            vCol1b = vandq_u32(vCol1b, vDiagMask1);
+            vCol2a = vandq_u32(vCol2a, vDiagMask2);
+            vCol2b = vandq_u32(vCol2b, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1a = vorrq_u32(vCol1a, vCol2a);
+            vCol1b = vorrq_u32(vCol1b, vCol2b);
+
+            // check if result is zero
+            vCol1a = vceqq_u32(vCol1a, vdupq_n_u32(0));
+            vCol1b = vceqq_u32(vCol1b, vdupq_n_u32(0));
+
+            // create mask from vector
+            uint32x4_t v = vorrq_u32(vandq_u32(vCol1a, vPowersOf2Lo), vandq_u32(vCol1b, vPowersOf2Hi));
+            uint32_t mask = vaddvq_u64(vpaddlq_u32(v));
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#else // !__aarch64__
+            // load bitmasks for columns which will be on diagonals
+            // for performance reasons load this as a row from transposed square
+            // also excluse 0th element, row 0 has fixed position in square
+            uint32x2_t vCol1a = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
+            uint32x2_t vCol1b = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][3]);
+            uint32x2_t vCol1c = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
+            uint32x2_t vCol1d = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][7]);
+            
+            uint32x2_t vCol2a = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            uint32x2_t vCol2b = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][3]);
+            uint32x2_t vCol2c = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+            uint32x2_t vCol2d = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][7]);
+
+            // AND loaded values with diagnonal masks
+            uint32x2_t vDiagMask1 = vdup_n_u32(diagonalValues1);
+            uint32x2_t vDiagMask2 = vdup_n_u32(diagonalValues2);
+
+            vCol1a = vand_u32(vCol1a, vDiagMask1);
+            vCol1b = vand_u32(vCol1b, vDiagMask1);
+            vCol1c = vand_u32(vCol1c, vDiagMask1);
+            vCol1d = vand_u32(vCol1d, vDiagMask1);
+            
+            vCol2a = vand_u32(vCol2a, vDiagMask2);
+            vCol2b = vand_u32(vCol2b, vDiagMask2);
+            vCol2c = vand_u32(vCol2c, vDiagMask2);
+            vCol2d = vand_u32(vCol2d, vDiagMask2);
+
+            // non-zero means that number is duplicated, zero means that it is unique
+            // OR these values together first
+            vCol1a = vorr_u32(vCol1a, vCol2a);
+            vCol1b = vorr_u32(vCol1b, vCol2b);
+            vCol1c = vorr_u32(vCol1c, vCol2c);
+            vCol1d = vorr_u32(vCol1d, vCol2d);
+
+            // check if result is zero
+            vCol1a = vceq_u32(vCol1a, vdup_n_u32(0));
+            vCol1b = vceq_u32(vCol1b, vdup_n_u32(0));
+            vCol1c = vceq_u32(vCol1c, vdup_n_u32(0));
+            vCol1d = vceq_u32(vCol1d, vdup_n_u32(0));
+
+            // create mask from vector
+            uint32x2_t v = vorr_u32(
+              vorr_u32(vand_u32(vCol1a, vPowersOf2_1), vand_u32(vCol1b, vPowersOf2_2)),
+              vorr_u32(vand_u32(vCol1c, vPowersOf2_3), vand_u32(vCol1d, vPowersOf2_4)));
+            //uint32_t mask = vaddv_u32(v);
+            uint32_t mask = v[0] + v[1];
+
+            // add one bit for 0th row, and AND result with rowsUsage
+            rowCandidates = (mask << 1) & rowsUsage;
+#endif
+#endif // AVX2/SSE2
           }
         }
     }
@@ -421,24 +678,20 @@ void MovePairSearch::MoveRows()
     {
       // Process not-founding of the new row: step backward, clear the flags of usage,
       // the history of usage, the list of current rows and clear the square itself
-        // Read the number of the current row
-        oldRowId = currentSquareRows[currentRowId];
-        // Clear the current row
-        for (int j = 0; j < Rank; j++)
-        {
-          squareB[currentRowId][j] = -1;
-        }
-        // Clear the current square
-        currentSquareRows[currentRowId] = -1;
-        // Clear the flag of possible usage
-        rowsUsage[oldRowId] = 1;
-        // Clear the history of work with this cell
-        for (int i = 0; i < Rank; i++)
-        {
-          rowsHistory[currentRowId][i] = 1;
-        }
+
         // Step backward
         currentRowId--;
+        DBG_DOWN();
+        // Check if we are done
+        if (0 == currentRowId)
+          break;
+        // Get saved values for previous row
+        diagonalValues1 = diagonalValuesHistory[currentRowId-1][0];
+        diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
+        // Clear the flag of row usage
+        SetBit(rowsUsage, currentSquareRows[currentRowId]);
+        // Get saved candidates
+        rowCandidates = rowsHistory[currentRowId];
     }
   }
 }
@@ -457,7 +710,7 @@ void MovePairSearch::ProcessOrthoSquare()
 
   // Check the square for being a copy of the initial one
   isDifferent = 0;
-  
+
   for (int i = 0; i < Rank; i++)
   {
     if (currentSquareRows[i] != i)
@@ -468,7 +721,7 @@ void MovePairSearch::ProcessOrthoSquare()
   }
 
   // Process the found square
-  if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric 
+  if (isDifferent && Square::OrthoDegree(a, b) == orthoMetric
       && b.IsDiagonal() && b.IsLatin() && a.IsDiagonal() && b.IsLatin())
   {
     // Write the information about the found square
@@ -494,7 +747,7 @@ void MovePairSearch::ProcessOrthoSquare()
       {
         if(isDebug)
         {
-          // Output the information about the 1st square in a pair as a header 
+          // Output the information about the 1st square in a pair as a header
           cout << "{" << endl;
           cout << "# ------------------------" << endl;
           cout << "# Detected pair for the square: " << endl;
@@ -530,7 +783,7 @@ void MovePairSearch::ProcessOrthoSquare()
         // Output the information into the file
         resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
-        { 
+        {
           resultFile << b << endl;
           resultFile.close();
         }
@@ -564,7 +817,7 @@ void MovePairSearch::CheckMutualOrthogonality()
   resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
   if (!resultFile.is_open()) { cout << "Error opening file!"; return; }
 
-  // Check the mutual orthogonality of a set of squares 
+  // Check the mutual orthogonality of a set of squares
   for (int i = 0; i <= maxSquareId; i++)
   {
     for (int j = i + 1; j <= maxSquareId; j++)
