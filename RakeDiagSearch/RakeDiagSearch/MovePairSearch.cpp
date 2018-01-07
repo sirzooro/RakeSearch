@@ -83,30 +83,22 @@ inline void MovePairSearch::SetRow(int* dst, int val)
 MovePairSearch::MovePairSearch()
 {
   Reset();
-  InitMask4to1bits();
+  InitMask2to1bits();
 }
 
-// Initialize mask4to1bits lookup table
-void MovePairSearch::InitMask4to1bits()
+// Initialize mask2to1bits lookup table
+void MovePairSearch::InitMask2to1bits()
 {
-#if defined(__SSE2__) && (!defined(__AVX2__) || defined(DISABLE_PEXT))
-  memset(mask4to1bits, 0, sizeof(mask4to1bits));
-  mask4to1bits[0x0000] = 0;
-  mask4to1bits[0x000f] = 1;
-  mask4to1bits[0x00f0] = 2;
-  mask4to1bits[0x00ff] = 3;
-  mask4to1bits[0x0f00] = 4;
-  mask4to1bits[0x0f0f] = 5;
-  mask4to1bits[0x0ff0] = 6;
-  mask4to1bits[0x0fff] = 7;
-  mask4to1bits[0xf000] = 8;
-  mask4to1bits[0xf00f] = 9;
-  mask4to1bits[0xf0f0] = 10;
-  mask4to1bits[0xf0ff] = 11;
-  mask4to1bits[0xff00] = 12;
-  mask4to1bits[0xff0f] = 13;
-  mask4to1bits[0xfff0] = 14;
-  mask4to1bits[0xffff] = 15;
+#if defined(__SSE2__)
+  memset(mask2to1bits, 0, sizeof(mask2to1bits));
+  for (int n = 0; n < 256; ++n)
+  {
+    int index = 0;
+    for (int k = 0; k < 8; ++k)
+      if (0 != (n & (1 << k)))
+        index |= 3 << (k * 2);
+    mask2to1bits[index] = n;
+  }
 #endif
 }
 
@@ -333,7 +325,8 @@ void MovePairSearch::OnSquareGenerated(Square newSquare)
       squareA[i][j] = newSquare.Matrix[i][j];
       squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
 #if defined (__SSE2__) || defined(__ARM_NEON)
-      squareA_MaskT[j][i] = squareA_Mask[i][j];
+      if (i > 0)
+        squareA_MaskT[j][i-1] = squareA_Mask[i][j];
 #endif
     }
   }
@@ -435,15 +428,12 @@ void MovePairSearch::MoveRows()
 
 #ifdef __ARM_NEON
   // Set the powers of 2
-  const uint32_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
+  const uint16_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 #ifdef __aarch64__
-  const uint32x4_t vPowersOf2Lo = vld1q_u32(powersOf2);
-  const uint32x4_t vPowersOf2Hi = vld1q_u32(powersOf2+4);
+  const uint16x8_t vPowersOf2 = vld1q_u16(powersOf2);
 #else
-  const uint32x2_t vPowersOf2_1 = vld1_u32(powersOf2);
-  const uint32x2_t vPowersOf2_2 = vld1_u32(powersOf2+2);
-  const uint32x2_t vPowersOf2_3 = vld1_u32(powersOf2+4);
-  const uint32x2_t vPowersOf2_4 = vld1_u32(powersOf2+6);
+  const uint16x4_t vPowersOf2Lo = vld1_u16(powersOf2);
+  const uint16x4_t vPowersOf2Hi = vld1_u16(powersOf2+4);
 #endif
 #endif
 
@@ -453,7 +443,7 @@ void MovePairSearch::MoveRows()
     // Process the search result
     if (rowCandidates)
     {
-      gettingRowId = ffs(rowCandidates) - 1;
+      gettingRowId = __builtin_ctz(rowCandidates);
       // Process the new found row
 
       // Mark the row in the history of the used rows
@@ -511,111 +501,72 @@ void MovePairSearch::MoveRows()
             currentRowId++;
             DBG_UP();
 
-#ifdef __AVX2__
+#ifdef __SSE2__
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            __m256i vCol1 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[currentRowId][1]);
-            __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            __m128i vCol1 = _mm_load_si128((const __m128i*)&squareA_MaskT[currentRowId][0]);
+            __m128i vCol2 = _mm_load_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
 
             // AND loaded values with diagnonal masks
-            __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues1);
-            __m256i vDiagMask2 = _mm256_set1_epi32(diagonalValues2);
+            __m128i vDiagMask1 = _mm_set1_epi16(diagonalValues1);
+            __m128i vDiagMask2 = _mm_set1_epi16(diagonalValues2);
 
-            vCol1 = _mm256_and_si256(vCol1, vDiagMask1);
-            vCol2 = _mm256_and_si256(vCol2, vDiagMask2);
+            vCol1 = _mm_and_si128(vCol1, vDiagMask1);
+            vCol2 = _mm_and_si128(vCol2, vDiagMask2);
 
             // non-zero means that number is duplicated, zero means that it is unique
             // OR these values together first
-            vCol1 = _mm256_or_si256(vCol1, vCol2);
+            vCol1 = _mm_or_si128(vCol1, vCol2);
 
 #if defined(__AVX512F__) && defined(__AVX512VL__)
             // check if result is zero and get result as a bitmask
-            __mmask8 resultMask = _mm256_cmpeq_epi32_mask(vCol1, _mm256_setzero_si256());
+            __mmask8 resultMask = _mm_cmpeq_epi16_mask(vCol1, _mm_setzero_si128());
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (resultMask << 1) & rowsUsage;
-#else // AVX512
+#else // !AVX512
             // check if result is zero
-            vCol1 = _mm256_cmpeq_epi32(vCol1, _mm256_setzero_si256());
+            vCol1 = _mm_cmpeq_epi16(vCol1, _mm_setzero_si128());
             // create mask from vector
-            // there are 4 bits per result, so we need to extract every 4th one
-            unsigned int mask = _mm256_movemask_epi8(vCol1);
-#ifndef DISABLE_PEXT
-            mask = _pext_u32(mask, 0x11111111);
+            // there are 2 bits per result, so we need to extract every 2nd one
+            unsigned int mask = _mm_movemask_epi8(vCol1);
+#if defined(__BMI2__) && !defined(DISABLE_PEXT)
+            mask = _pext_u32(mask, 0x5555);
 #else
             // PEXT instruction is very slow on AMD Ryzen/Threadripper, so alternative for them is needed
-            mask = mask4to1bits[mask & 0xFFFF] | (mask4to1bits[mask >> 16] << 4);
+            // Other instruction sets also do not provide better alternative
+            mask = mask2to1bits[mask];
 #endif
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
-#endif // AVX512
-#elif defined(__SSE2__)
-            // load bitmasks for columns which will be on diagonals
-            // for performance reasons load this as a row from transposed square
-            // also excluse 0th element, row 0 has fixed position in square
-            __m128i vCol1a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][1]);
-            __m128i vCol1b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][5]);
-            __m128i vCol2a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
-            __m128i vCol2b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
-
-            // AND loaded values with diagnonal masks
-            __m128i vDiagMask1 = _mm_set1_epi32(diagonalValues1);
-            __m128i vDiagMask2 = _mm_set1_epi32(diagonalValues2);
-
-            vCol1a = _mm_and_si128(vCol1a, vDiagMask1);
-            vCol1b = _mm_and_si128(vCol1b, vDiagMask1);
-            vCol2a = _mm_and_si128(vCol2a, vDiagMask2);
-            vCol2b = _mm_and_si128(vCol2b, vDiagMask2);
-
-            // non-zero means that number is duplicated, zero means that it is unique
-            // OR these values together first
-            vCol1a = _mm_or_si128(vCol1a, vCol2a);
-            vCol1b = _mm_or_si128(vCol1b, vCol2b);
-
-            // check if result is zero
-            vCol1a = _mm_cmpeq_epi32(vCol1a, _mm_setzero_si128());
-            vCol1b = _mm_cmpeq_epi32(vCol1b, _mm_setzero_si128());
-            // create mask from vector
-            // there are 4 bits per result, so we need to extract every 4th one
-            int mask1 = _mm_movemask_epi8(vCol1a);
-            int mask2 = _mm_movemask_epi8(vCol1b);
-            int mask = mask4to1bits[mask1] | (mask4to1bits[mask2] << 4);
-
-            // add one bit for 0th row, and AND result with rowsUsage
-            rowCandidates = (mask << 1) & rowsUsage;
+#endif // !AVX512
 #elif defined(__ARM_NEON)
 #ifdef __aarch64__
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            uint32x4_t vCol1a = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
-            uint32x4_t vCol1b = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
-            uint32x4_t vCol2a = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
-            uint32x4_t vCol2b = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+            uint16x8_t vCol1 = vld1q_u16((const uint16_t*)&squareA_MaskT[currentRowId][0]);
+            uint16x8_t vCol2 = vld1q_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
 
             // AND loaded values with diagnonal masks
-            uint32x4_t vDiagMask1 = vdupq_n_u32(diagonalValues1);
-            uint32x4_t vDiagMask2 = vdupq_n_u32(diagonalValues2);
+            uint16x8_t vDiagMask1 = vdupq_n_u16(diagonalValues1);
+            uint16x8_t vDiagMask2 = vdupq_n_u16(diagonalValues2);
 
-            vCol1a = vandq_u32(vCol1a, vDiagMask1);
-            vCol1b = vandq_u32(vCol1b, vDiagMask1);
-            vCol2a = vandq_u32(vCol2a, vDiagMask2);
-            vCol2b = vandq_u32(vCol2b, vDiagMask2);
+            vCol1 = vandq_u16(vCol1, vDiagMask1);
+            vCol2 = vandq_u16(vCol2, vDiagMask2);
 
             // non-zero means that number is duplicated, zero means that it is unique
             // OR these values together first
-            vCol1a = vorrq_u32(vCol1a, vCol2a);
-            vCol1b = vorrq_u32(vCol1b, vCol2b);
+            vCol1 = vorrq_u16(vCol1, vCol2);
 
             // check if result is zero
-            vCol1a = vceqq_u32(vCol1a, vdupq_n_u32(0));
-            vCol1b = vceqq_u32(vCol1b, vdupq_n_u32(0));
+            vCol1 = vceqq_u16(vCol1, vdupq_n_u16(0));
 
             // create mask from vector
-            uint32x4_t v = vorrq_u32(vandq_u32(vCol1a, vPowersOf2Lo), vandq_u32(vCol1b, vPowersOf2Hi));
-            uint32_t mask = vaddvq_u64(vpaddlq_u32(v));
+            uint16x8_t v = vandq_u16(vCol1, vPowersOf2);
+            uint32_t mask = vaddvq_u64(vpaddlq_u32(vpaddlq_u16(v)));
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
@@ -623,49 +574,39 @@ void MovePairSearch::MoveRows()
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            uint32x2_t vCol1a = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
-            uint32x2_t vCol1b = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][3]);
-            uint32x2_t vCol1c = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
-            uint32x2_t vCol1d = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][7]);
+            uint16x4_t vCol1a = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][0]);
+            uint16x4_t vCol1b = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][4]);
             
-            uint32x2_t vCol2a = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
-            uint32x2_t vCol2b = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][3]);
-            uint32x2_t vCol2c = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
-            uint32x2_t vCol2d = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][7]);
+            uint16x4_t vCol2a = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
+            uint16x4_t vCol2b = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][4]);
 
             // AND loaded values with diagnonal masks
-            uint32x2_t vDiagMask1 = vdup_n_u32(diagonalValues1);
-            uint32x2_t vDiagMask2 = vdup_n_u32(diagonalValues2);
+            uint16x4_t vDiagMask1 = vdup_n_u16(diagonalValues1);
+            uint16x4_t vDiagMask2 = vdup_n_u16(diagonalValues2);
 
-            vCol1a = vand_u32(vCol1a, vDiagMask1);
-            vCol1b = vand_u32(vCol1b, vDiagMask1);
-            vCol1c = vand_u32(vCol1c, vDiagMask1);
-            vCol1d = vand_u32(vCol1d, vDiagMask1);
+            vCol1a = vand_u16(vCol1a, vDiagMask1);
+            vCol1b = vand_u16(vCol1b, vDiagMask1);
             
-            vCol2a = vand_u32(vCol2a, vDiagMask2);
-            vCol2b = vand_u32(vCol2b, vDiagMask2);
-            vCol2c = vand_u32(vCol2c, vDiagMask2);
-            vCol2d = vand_u32(vCol2d, vDiagMask2);
+            vCol2a = vand_u16(vCol2a, vDiagMask2);
+            vCol2b = vand_u16(vCol2b, vDiagMask2);
 
             // non-zero means that number is duplicated, zero means that it is unique
             // OR these values together first
-            vCol1a = vorr_u32(vCol1a, vCol2a);
-            vCol1b = vorr_u32(vCol1b, vCol2b);
-            vCol1c = vorr_u32(vCol1c, vCol2c);
-            vCol1d = vorr_u32(vCol1d, vCol2d);
+            vCol1a = vorr_u16(vCol1a, vCol2a);
+            vCol1b = vorr_u16(vCol1b, vCol2b);
 
             // check if result is zero
-            vCol1a = vceq_u32(vCol1a, vdup_n_u32(0));
-            vCol1b = vceq_u32(vCol1b, vdup_n_u32(0));
-            vCol1c = vceq_u32(vCol1c, vdup_n_u32(0));
-            vCol1d = vceq_u32(vCol1d, vdup_n_u32(0));
+            vCol1a = vceq_u16(vCol1a, vdup_n_u16(0));
+            vCol1b = vceq_u16(vCol1b, vdup_n_u16(0));
 
             // create mask from vector
-            uint32x2_t v = vorr_u32(
-              vorr_u32(vand_u32(vCol1a, vPowersOf2_1), vand_u32(vCol1b, vPowersOf2_2)),
-              vorr_u32(vand_u32(vCol1c, vPowersOf2_3), vand_u32(vCol1d, vPowersOf2_4)));
-            //uint32_t mask = vaddv_u32(v);
-            uint32_t mask = v[0] + v[1];
+            vCol1a = vand_u16(vCol1a, vPowersOf2Lo);
+            vCol1b = vand_u16(vCol1b, vPowersOf2Hi);
+            
+            vCol1a = vorr_u16(vCol1a, vCol1b);
+            
+            uint64x1_t v = vpaddl_u32(vpaddl_u16(vCol1a));
+            uint32_t mask = vget_lane_u32(vreinterpret_u32_u64(v), 0);
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
