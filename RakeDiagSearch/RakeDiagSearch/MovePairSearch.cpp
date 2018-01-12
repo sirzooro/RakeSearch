@@ -574,20 +574,15 @@ void MovePairSearch::MoveRows()
             vCol1a = _mm_or_si128(vCol1a, vCol2a);
             vCol1b = _mm_or_si128(vCol1b, vCol2b);
 
+            // Saturate_Int32_To_Int8()
+            __m128i vColpack = _mm_packs_epi32(vCol1a, vCol1b);
+            vColpack = _mm_packs_epi16(vColpack, _mm_setzero_si128());
+
             // check if result is zero
-            vCol1a = _mm_cmpeq_epi32(vCol1a, _mm_setzero_si128());
-            vCol1b = _mm_cmpeq_epi32(vCol1b, _mm_setzero_si128());
+            __m128i vColzeros = _mm_cmpeq_epi8(vColpack, _mm_setzero_si128());
+
             // create mask from vector
-            // there are 4 bits per result, so we need to extract every 4th one
-#if 0
-            __m128i maskAB = _mm_packs_epi32(vCol1a, vCol1b);
-            __m128i maskab = _mm_packs_epi16(maskAB, _mm_setzero_si128());
-            int mask = _mm_movemask_epi8(maskab);
-#else
-            int mask1 = _mm_movemask_ps(_mm_castsi128_ps(vCol1a));
-            int mask2 = _mm_movemask_ps(_mm_castsi128_ps(vCol1b));
-            int mask = mask1 | (mask2 << 4);
-#endif
+            int mask = _mm_movemask_epi8(vColzeros);
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
