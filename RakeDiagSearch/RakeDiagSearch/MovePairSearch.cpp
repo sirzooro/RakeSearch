@@ -89,7 +89,7 @@ MovePairSearch::MovePairSearch()
 // Initialize mask4to1bits lookup table
 void MovePairSearch::InitMask4to1bits()
 {
-#if (!defined(__AVX2__) || defined(DISABLE_PEXT))
+#if defined(__AVX2__) && defined(DISABLE_PEXT)
   memset(mask4to1bits, 0, sizeof(mask4to1bits));
   mask4to1bits[0x0000] = 0;
   mask4to1bits[0x000f] = 1;
