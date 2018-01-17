@@ -83,23 +83,6 @@ inline void MovePairSearch::SetRow(int* dst, int val)
 MovePairSearch::MovePairSearch()
 {
   Reset();
-  InitMask2to1bits();
-}
-
-// Initialize mask2to1bits lookup table
-void MovePairSearch::InitMask2to1bits()
-{
-#if defined(__SSE2__)
-  memset(mask2to1bits, 0, sizeof(mask2to1bits));
-  for (int n = 0; n < 256; ++n)
-  {
-    int index = 0;
-    for (int k = 0; k < 8; ++k)
-      if (0 != (n & (1 << k)))
-        index |= 3 << (k * 2);
-    mask2to1bits[index] = n;
-  }
-#endif
 }
 
 // Reset search settings
@@ -528,16 +511,11 @@ void MovePairSearch::MoveRows()
 #else // !AVX512
             // check if result is zero
             vCol1 = _mm_cmpeq_epi16(vCol1, _mm_setzero_si128());
+
             // create mask from vector
-            // there are 2 bits per result, so we need to extract every 2nd one
+            // there are 2 bits per result, so we need to pack int16 to int8 first
+            vCol1 = _mm_packs_epi16(vCol1, _mm_setzero_si128());
             unsigned int mask = _mm_movemask_epi8(vCol1);
-#if defined(__BMI2__) && !defined(DISABLE_PEXT)
-            mask = _pext_u32(mask, 0x5555);
-#else
-            // PEXT instruction is very slow on AMD Ryzen/Threadripper, so alternative for them is needed
-            // Other instruction sets also do not provide better alternative
-            mask = mask2to1bits[mask];
-#endif
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;

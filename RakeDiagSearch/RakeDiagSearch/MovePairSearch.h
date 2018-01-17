@@ -27,7 +27,6 @@ private:
   static const int CheckpointInterval = 1000000;  // Interval for checkpoint creation
   static const int OrhoSquaresCacheSize = 32;     // Cache size to store the squares orthogonal to the processed one
 
-  void InitMask2to1bits();
   void MoveRows();                  // Permute the rows of the given DLS, trying to find ODLS for it
   void ProcessOrthoSquare();        // Process the found orthogonal square
   void CheckMutualOrthogonality();  // Check the mutual orthogonality of a set of squares found in the current search
@@ -67,10 +66,6 @@ private:
   string moveSearchGlobalHeader;    // Header preceding the data about search state
   string moveSearchComponentHeader; // Header preceding the data about the state of the component of rows permutation
   static const bool isDebug = false; // Flag of displaying debug information
-
-#if defined(__SSE2__)
-  unsigned char mask2to1bits[0x10000]; // Lookup table to map 2 bit packs returned by movemask to 1 bit
-#endif
 };
 
 # endif
