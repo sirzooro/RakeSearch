@@ -454,6 +454,8 @@ void Generator::Start()
 }
 
 // Actual implementation of the squares generation
+// Note: values on diagonal are preset in WU, so corresponding parts of code are commented out.
+// It turned out that it was quite costly to have instructions which were doing nothing.
 template<typename IsKeyValueEmpty>
 inline void Generator::StartImpl()
 {
@@ -483,7 +485,7 @@ inline void Generator::StartImpl()
 
           // Test the value: has it been used in diagonals
           // Test the main diagonal
-          if(columnId == rowId)
+          /*if(columnId == rowId)
           {
             cellValue &= primary;
           }
@@ -492,64 +494,51 @@ inline void Generator::StartImpl()
           if (rowId == Rank - 1 - columnId)
           {
             cellValue &= secondary;
-          }
+          }*/
 
         // Process the search result
         if (cellValue)
         {
-          // Get index of first bit set
-          cellValue = ffs(cellValue) - 1;
-          // Process the new found value
-            // Read the current value
-            oldCellValue = newSquare.Matrix[rowId][columnId];
-            // Write the new value
-              // Write the value into the square
-              newSquare.Matrix[rowId][columnId] = cellValue;
-              // Mark the value in columns
-              SetUsed(columns[columnId], cellValue);
-              // Mark the value in rows
-              SetUsed(rows[rowId], cellValue);
-              // Mark the value in diagonals
-              if (rowId == columnId)
-              {
-                SetUsed(primary, cellValue);
-              }
-              if (rowId == Rank - 1 - columnId)
-              {
-                SetUsed(secondary, cellValue);
-              }
-              // Mark the value in the history of cell values
-              SetUsed(cellsHistory[rowId][columnId], cellValue);
+          // Extract lowest bit set
+          int bits = (-cellValue) & cellValue;
+          // Mark the value in the history of cell values
+          cellsHistory[rowId][columnId] ^= bits;
 
-            // Restore the previous value without clearing the history (because we are working with this cell)
-            if (oldCellValue != Square::Empty)
-            {
-              // Restore the value into columns
-              SetFree(columns[columnId], oldCellValue);
-              // Restore the value into rows
-              SetFree(rows[rowId], oldCellValue);
-              // Restore the value into diagonals
-              if (rowId == columnId)
-              {
-                SetFree(primary, oldCellValue);
-              }
-              if (rowId == Rank - 1 - columnId)
-              {
-                SetFree(secondary, oldCellValue);
-              }
-            }
+          // Read the current value
+          oldCellValue = newSquare.Matrix[rowId][columnId];
+          // If it is there, set corresponding bit it bits to restore the previous value too.
+          // Both bits will be swapped using XOR instructions.
+          // History is not cleared, because we are working with this cell.
+          if (oldCellValue != Square::Empty)
+            bits |= 1 << oldCellValue;
 
-            // Process the finish of the square generation
-            if (cellId == cellsInPath - 1)
-            {
-              // Process the found square
-              ProcessSquare();
-            }
-            else
-            {
-              // Step forward
-              cellId++;
-            }
+          // Mark/restore the value in columns
+          columns[columnId] ^= bits;
+          // Mark/restore the value in rows
+          rows[rowId] ^= bits;
+          // Mark/restore the value in diagonals
+          /*if (rowId == columnId)
+          {
+            primary ^= bits;
+          }
+          if (rowId == Rank - 1 - columnId)
+          {
+            secondary ^= bits;
+          }*/
+          // Write the value into the square
+          newSquare.Matrix[rowId][columnId] = __builtin_ctz(cellValue);
+
+          // Process the finish of the square generation
+          if (cellId == cellsInPath - 1)
+          {
+            // Process the found square
+            ProcessSquare();
+          }
+          else
+          {
+            // Step forward
+            cellId++;
+          }
         }
         else
         {
@@ -565,14 +554,14 @@ inline void Generator::StartImpl()
                 // Restore the value into rows
                 SetFree(rows[rowId], cellValue);
                 // Restore the value into diagonals
-                if (rowId == columnId)
+                /*if (rowId == columnId)
                 {
                   SetFree(primary, cellValue);
                 }
                 if (rowId == Rank - 1 - columnId)
                 {
                   SetFree(secondary, cellValue);
-                }
+                }*/
                 // Reset the cell of the square
                 newSquare.Matrix[rowId][columnId] = Square::Empty;
                 // Clear the history of the cell (rowId, columnId)
