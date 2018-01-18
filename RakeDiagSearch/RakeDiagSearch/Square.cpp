@@ -1,4 +1,5 @@
 #include "Square.h"
+#include <string.h>
 
 using namespace std;
 
@@ -17,22 +18,16 @@ Square::Square(int source[Rank][Rank])
 
 
 // Copy constructor
-Square::Square(Square& source)
+Square::Square(const Square& source)
 {
 	Initialize(source.Matrix);
 }
 
 
 // Initialization of internal structures
-void Square::Initialize(int source[Rank][Rank])
+void Square::Initialize(const int source[Rank][Rank])
 {
-	for (int rowId = 0; rowId < Rank; rowId++)
-	{
-		for (int columnId = 0; columnId < Rank; columnId++)
-		{
-			Matrix[rowId][columnId] = source[rowId][columnId];
-		}
-	}
+	memcpy(Matrix, source, sizeof(Matrix));
 }
 
 
@@ -50,40 +45,27 @@ void Square::Reset()
 
 
 // Comparison operator
-int Square::operator == (Square& value)
+int Square::operator == (const Square& value) const
 {
-	int isEqual = 1;
-
-	for (int rowId = 0; rowId < Rank && isEqual; rowId++)
-	{
-		for (int columnId = 0; columnId < Rank && isEqual; columnId++)
-		{
-			if (Matrix[rowId][columnId] != value.Matrix[rowId][columnId])
-			{
-				isEqual = 0;
-			}
-		}
-	}
-
-return isEqual;
+	return 0 == memcmp(Matrix, value.Matrix, sizeof(Matrix));
 }
 
 
 // Assignment operator
-Square& Square::operator = (Square& value)
+Square& Square::operator = (const Square& value)
 {
 	Initialize(value.Matrix);
 
-return *this;
+	return *this;
 }
 
 
 // Operator of square data output
-std::ostream& operator << (std::ostream& os, Square& value)
+std::ostream& operator << (std::ostream& os, const Square& value)
 {
 	value.Write(os);
 
-return os;
+	return os;
 }
 
 
@@ -92,7 +74,7 @@ std::istream& operator >> (std::istream& is, Square& value)
 {
 	value.Read(is);
 
-return is;
+	return is;
 }
 
 
@@ -127,7 +109,7 @@ void Square::Read(std::istream& is)
 
 
 // Writing the square into the stream
-void Square::Write(std::ostream& os)
+void Square::Write(std::ostream& os) const
 {
 	// Writing the start token of data block
 	os << HeadToken << endl;
@@ -147,7 +129,7 @@ void Square::Write(std::ostream& os)
 }
 
 // Checking the square for being a diagonal Latin one
-int Square::IsDiagonal()
+int Square::IsDiagonal() const
 {
 	int isDiagonal = 1;
 
@@ -182,7 +164,7 @@ int Square::IsDiagonal()
 
 
 // Checking the square for being Latin
-int Square::IsLatin()
+int Square::IsLatin() const
 {
 	int isLatin = 1;
 
@@ -225,7 +207,7 @@ int Square::IsLatin()
 
 
 // Checking the orthogonality of the squares a and b
-int Square::OrthoDegree(Square a, Square b)
+int Square::OrthoDegree(const Square& a, const Square& b)
 {
 	int degree = 0;				// Orthogonality degree
 	int freePair[Rank][Rank];	// Array of usage of the values pairs in the generated Greco-Latin square
@@ -252,5 +234,5 @@ int Square::OrthoDegree(Square a, Square b)
 		}
 	}
 
-return degree;
+	return degree;
 }

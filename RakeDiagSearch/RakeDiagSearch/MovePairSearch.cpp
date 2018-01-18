@@ -295,7 +295,7 @@ void MovePairSearch::StartMoveSearch()
 
 
 // Event processor of DLS generation, will start the search for its pair
-void MovePairSearch::OnSquareGenerated(Square newSquare)
+void MovePairSearch::OnSquareGenerated(const Square& newSquare)
 {
   // Reset before the search for orthogonal squares
   ClearBeforeNextSearch();
@@ -620,7 +620,6 @@ void MovePairSearch::MoveRows()
 void MovePairSearch::ProcessOrthoSquare()
 {
   int isDifferent = 0;      // The number of differences in the rows with the initial square (to avoid generating its copy)
-  ofstream resultFile;      // The stream for output into the results file
 
   Square a(squareA);        // Square A as an object
   Square b(squareB);        // Square B as an object
@@ -661,6 +660,15 @@ void MovePairSearch::ProcessOrthoSquare()
         orthoSquares[pairsCount] = b;
       }
 
+      // The stream for output into the results file
+      // It must be here, creation and destruction of iostream is costly!
+      ofstream resultFile;
+      resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
+      if (!resultFile.is_open())
+      {
+        std::cerr << "Error opening file!";
+      }
+
       // Output the header
       if (pairsCount == 1)
       {
@@ -675,7 +683,6 @@ void MovePairSearch::ProcessOrthoSquare()
           cout << "# ------------------------" << endl;
         }
         // Write the information into file
-        resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         {
           resultFile << "{" << endl;
@@ -684,11 +691,6 @@ void MovePairSearch::ProcessOrthoSquare()
           resultFile << "# ------------------------" << endl;
           resultFile << a;
           resultFile << "# ------------------------" << endl;
-          resultFile.close();
-        }
-        else
-        {
-          std::cerr << "Error opening file!";
         }
       }
 
@@ -700,17 +702,11 @@ void MovePairSearch::ProcessOrthoSquare()
         }
 
         // Output the information into the file
-        resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         {
           resultFile << b << endl;
           resultFile.close();
         }
-        else
-        {
-          std::cerr << "Error opening file!";
-        }
-
   }
 }
 

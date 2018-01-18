@@ -21,7 +21,7 @@ public:
   void ClearBeforeNextSearch();  // Reset the variables before the next search
   void InitializeMoveSearch(string start, string result, string checkpoint, string temp);  // Search initialization
   void StartMoveSearch();        // Start the search for orthogonal squares by the method of rows permutation
-  void OnSquareGenerated(Square newSquare);  // Event processor of DLS generation, will start the search for its pair
+  void OnSquareGenerated(const Square& newSquare);  // Event processor of DLS generation, will start the search for its pair
 
 private:                              
   static const int CheckpointInterval = 1000000;  // Interval for checkpoint creation
