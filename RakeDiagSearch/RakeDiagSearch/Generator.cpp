@@ -463,10 +463,21 @@ inline void Generator::StartImpl()
   int oldCellValue; // Old value from the cell
 
   // Create constant copies of used fields to speedup calculations
-  const int cellsInPath = this->cellsInPath;
+  const int_fast32_t cellsInPath = this->cellsInPath;
   const int keyValue = this->keyValue;
-  const int keyRowId = this->keyRowId;
-  const int keyColumnId = this->keyColumnId;
+  const int_fast32_t keyRowId = this->keyRowId;
+  const int_fast32_t keyColumnId = this->keyColumnId;
+
+  // Use registers for local variables instead of memory
+  int_fast32_t rowId, columnId;
+  int_fast32_t cellId = this->cellId;
+
+  // Checkpoint may be written after new ODLS is created only.
+  // Class members moved to registers above are constant in checkpoint
+  // file, so they can be set to proper values here.
+  this->rowId = path[cellsInPath - 1][0];
+  this->columnId = path[cellsInPath - 1][1];
+  this->cellId = cellsInPath - 1;
 
   if (isInitialized == Yes)
   {
