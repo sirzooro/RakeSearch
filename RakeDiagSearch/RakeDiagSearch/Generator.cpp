@@ -24,6 +24,11 @@
 
 #define ffs __builtin_ffs
 
+// Square::Empty is equal -1, all other values and non-negative.
+// CPU sets sign bit in status register automatically when executing instructions,
+// so sign check instead of value check can give faster code.
+#define IsCellEmpty(val) ((val) < 0)
+
 
 using namespace std;
 
@@ -447,7 +452,7 @@ void Generator::CreateCheckpoint()
 void Generator::Start()
 {
   // Check value of keyValue and pass result as a type to StartImpl
-  if (keyValue == Square::Empty)
+  if (IsCellEmpty(keyValue))
     StartImpl<true_type>();
   else
     StartImpl<false_type>();
@@ -520,7 +525,7 @@ inline void Generator::StartImpl()
           // If it is there, set corresponding bit it bits to restore the previous value too.
           // Both bits will be swapped using XOR instructions.
           // History is not cleared, because we are working with this cell.
-          if (oldCellValue != Square::Empty)
+          if (!IsCellEmpty(oldCellValue))
             bits |= 1 << oldCellValue;
 
           // Mark/restore the value in columns
@@ -558,7 +563,7 @@ inline void Generator::StartImpl()
               // Read the current value
               cellValue = newSquare.Matrix[rowId][columnId];
               // Restore the value into auxilary arrays
-              if (cellValue != Square::Empty)
+              if (!IsCellEmpty(cellValue))
               {
                 // Restore the value into columns
                 SetFree(columns[columnId], cellValue);
@@ -586,7 +591,7 @@ inline void Generator::StartImpl()
             if (IsKeyValueEmpty::value)
             {
               // Set the flag if the terminal value is "-1" which means we must leave the cell
-              if (cellId < 0 && newSquare.Matrix[keyRowId][keyColumnId] == Square::Empty)
+              if (cellId < 0 && IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId]))
               {
                 break;
               }
