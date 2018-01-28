@@ -301,18 +301,178 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
   ClearBeforeNextSearch();
 
   // Write the found square
+
+  // Copy square and generate masks first
+#ifdef __AVX512F__
+  // AVX512 has "shift by vector" instruction, use it here
+  int n = 0;
+  for (; n < Rank*Rank-15; n += 16)
+  {
+    // Copy data
+    __m512i v = _mm512_load_si512 ((__m512i*)(&newSquare.Matrix[0][0] + n));
+    _mm512_store_si512((__m512i*)(&squareA[0][0] + n), v);
+
+    // Calculate bitmasks
+    v = _mm512_sllv_epi32(_mm512_set1_epi32(1), v);
+    _mm512_store_si512((__m512i*)(&squareA_Mask[0][0] + n), v);
+  }
+  // Process remaining elements
+  for (; n < Rank*Rank; n++)
+  {
+    *((&squareA[0][0] + n)) = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA_Mask[0][0] + n)) = 1 << *(&newSquare.Matrix[0][0] + n);
+  }
+#elif defined(__AVX2__)
+  // AVX2 has "shift by vector" instruction, use it here
+  int n = 0;
+  for (; n < Rank*Rank-7; n += 8)
+  {
+    // Copy data
+    __m256i v = _mm256_load_si256 ((__m256i*)(&newSquare.Matrix[0][0] + n));
+    _mm256_store_si256((__m256i*)(&squareA[0][0] + n), v);
+
+    // Calculate bitmasks
+    v = _mm256_sllv_epi32(_mm256_set1_epi32(1), v);
+    _mm256_store_si256((__m256i*)(&squareA_Mask[0][0] + n), v);
+  }
+  // Process remaining elements
+  for (; n < Rank*Rank; n++)
+  {
+    *((&squareA[0][0] + n)) = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA_Mask[0][0] + n)) = 1 << *(&newSquare.Matrix[0][0] + n);
+  }
+#elif defined(__SSSE3__)
+  // SSSE3 added shuffle instruction, which can be used to build small lookup table.
+  // Maximum val (256) needs 9 bytes. Fortunately all values can be decreased by one,
+  // so all of them will fit in 8 bits here.
+  const __m128i vcLut = _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 255, 127, 63, 31, 15, 7, 3, 1, 0);
+  const __m128i vc1 = _mm_set1_epi16(1);
+  const __m128i vc0 = _mm_setzero_si128();
+  int n = 0;
+  for (; n < Rank*Rank-7; n += 8)
+  {
+    // Copy data
+    __m128i v1 = _mm_load_si128((__m128i*)(&newSquare.Matrix[0][0] + n));
+    __m128i v2 = _mm_load_si128((__m128i*)(&newSquare.Matrix[0][0] + n + 4));
+    _mm_store_si128((__m128i*)(&squareA[0][0] + n), v1);
+    _mm_store_si128((__m128i*)(&squareA[0][0] + n + 4), v2);
+
+    // Pack two 32x4 vectors into one 8x16
+    v1 = _mm_packs_epi32(v1, v2);
+    v1 = _mm_packs_epi16(v1, vc0);
+    // Get maak fom LUT
+    v1 = _mm_shuffle_epi8(vcLut, v1);
+    // Convert vector 8x16 to 16x8, and increment values by one
+    v1 = _mm_unpacklo_epi8(v1, vc0);
+    v1 = _mm_add_epi16(v1, vc1);
+
+    // Convert vector 16x8 into two 32x4, and store results
+    v2 = _mm_unpackhi_epi16(v1, vc0);
+    v1 = _mm_unpacklo_epi16(v1, vc0);
+
+    _mm_store_si128((__m128i*)(&squareA_Mask[0][0] + n), v1);
+    _mm_store_si128((__m128i*)(&squareA_Mask[0][0] + n + 4), v2);
+  }
+  // Process remaining elements
+  for (; n < Rank*Rank; n++)
+  {
+    *((&squareA[0][0] + n)) = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA_Mask[0][0] + n)) = 1 << *(&newSquare.Matrix[0][0] + n);
+  }
+#elif defined(__ARM_NEON)
+  // TODO
+#ifdef __aarch64__
+#else // !__aarch64__
+#endif // !__aarch64__
+#else
+  // Default non-SIMD code
   for (int i = 0; i < Rank; i++)
   {
     for (int j = 0; j < Rank; j++)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
       squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
-#if defined (__SSE2__) || defined(__ARM_NEON)
-      if (i > 0)
-        squareA_MaskT[j][i-1] = squareA_Mask[i][j];
-#endif
     }
   }
+#endif
+
+  // Create transposed copy of squareA_Mask if needed
+#ifdef __SSE2__
+  __m128i v1, v2;
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][4]));
+  __m128i v1_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[2][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[2][4]));
+  __m128i v2_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[3][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[3][4]));
+  __m128i v3_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[4][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[4][4]));
+  __m128i v4_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[5][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[5][4]));
+  __m128i v5_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[6][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[6][4]));
+  __m128i v6_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[7][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[7][4]));
+  __m128i v7_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[8][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[8][4]));
+  __m128i v8_1 = _mm_packs_epi32(v1, v2);
+
+  __m128i v1_2 = _mm_unpacklo_epi16(v1_1, v2_1);
+  __m128i v2_2 = _mm_unpackhi_epi16(v1_1, v2_1);
+  __m128i v3_2 = _mm_unpacklo_epi16(v3_1, v4_1);
+  __m128i v4_2 = _mm_unpackhi_epi16(v3_1, v4_1);
+  __m128i v5_2 = _mm_unpacklo_epi16(v5_1, v6_1);
+  __m128i v6_2 = _mm_unpackhi_epi16(v5_1, v6_1);
+  __m128i v7_2 = _mm_unpacklo_epi16(v7_1, v8_1);
+  __m128i v8_2 = _mm_unpackhi_epi16(v7_1, v8_1);
+
+  __m128i v1_3 = _mm_unpacklo_epi32(v1_2, v3_2);
+  __m128i v2_3 = _mm_unpackhi_epi32(v1_2, v3_2);
+  __m128i v3_3 = _mm_unpacklo_epi32(v2_2, v4_2);
+  __m128i v4_3 = _mm_unpackhi_epi32(v2_2, v4_2);
+  __m128i v5_3 = _mm_unpacklo_epi32(v5_2, v7_2);
+  __m128i v6_3 = _mm_unpackhi_epi32(v5_2, v7_2);
+  __m128i v7_3 = _mm_unpacklo_epi32(v6_2, v8_2);
+  __m128i v8_3 = _mm_unpackhi_epi32(v6_2, v8_2);
+
+  __m128i v1_4 = _mm_unpacklo_epi64(v1_3, v5_3);
+  __m128i v2_4 = _mm_unpackhi_epi64(v1_3, v5_3);
+  __m128i v3_4 = _mm_unpacklo_epi64(v2_3, v6_3);
+  __m128i v4_4 = _mm_unpackhi_epi64(v2_3, v6_3);
+  __m128i v5_4 = _mm_unpacklo_epi64(v3_3, v7_3);
+  __m128i v6_4 = _mm_unpackhi_epi64(v3_3, v7_3);
+  __m128i v7_4 = _mm_unpacklo_epi64(v4_3, v8_3);
+  __m128i v8_4 = _mm_unpackhi_epi64(v4_3, v8_3);
+
+  _mm_store_si128((__m128i*)(&squareA_MaskT[0][0]), v1_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[1][0]), v2_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[2][0]), v3_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[3][0]), v4_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[4][0]), v5_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[5][0]), v6_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[6][0]), v7_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[7][0]), v8_4);
+
+  for (int i = 1; i < Rank; i++)
+  {
+    for (int j = 8; j < Rank; j++)
+    {
+      squareA_MaskT[j][i-1] = squareA_Mask[i][j];
+    }
+  }
+#elif defined(__ARM_NEON)
+  // TODO
+#ifdef __aarch64__
+#else // !__aarch64__
+#endif // !__aarch64__
+#endif // __SSE2__
 
   // Start the rows permutation
   MoveRows();

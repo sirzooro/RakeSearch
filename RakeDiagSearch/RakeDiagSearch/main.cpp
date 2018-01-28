@@ -15,6 +15,7 @@
 #include <asm/hwcap.h>
 #include <stdio.h>
 #endif
+#include "Helpers.h"
 
 using namespace std;
 
@@ -40,11 +41,7 @@ int Compute(string wu_filename, string result_filename)
   string initCheckpointFileName;
   string initTmpCheckpointFileName;
 
-  MovePairSearch search
-#if defined (__SSE2__) || defined(__ARM_NEON)
-    __attribute__((aligned(32)))
-#endif
-    ;
+  MovePairSearch search ALIGNED;
 
     // Checking the workunit file, the checkpoint file, the result file for existence
     localWorkunit = wu_filename; 

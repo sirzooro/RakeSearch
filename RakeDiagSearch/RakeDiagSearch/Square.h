@@ -4,6 +4,7 @@
 # define Square_h
 
 # include <iostream>
+# include "Helpers.h"
 
 using namespace std;
 
@@ -35,9 +36,9 @@ public:
 	void Initialize(const int source[Rank][Rank]);	// Initialization of the square components
 	void Reset();					// Resetting all values of variables
 	void Read(std::istream& is);			// Reading the square from stream
-	void Write(std::ostream& os) const;			// Writing the square into stream
+	void Write(std::ostream& os) const;		// Writing the square into stream
 
-	int Matrix[Rank][Rank];				// Matrix of the square
+	int Matrix[Rank][Rank] ALIGNED;			// Matrix of the square
 
 protected:
 private:
