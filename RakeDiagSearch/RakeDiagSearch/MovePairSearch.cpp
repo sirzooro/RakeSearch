@@ -679,11 +679,15 @@ void MovePairSearch::MoveRows()
 #endif
 #endif
 
+  // Note: code below assumes that rowCandidates is non-zero at beginning
+  // so 1st nested while loop should execute first. If it may not be the case,
+  // change code to handle this.
+  // 1st loop (used to be "if" part) - handle case when at least one row candidate is present
   while (1)
   {
     // Select a row from the initial square for the position currentRowId of the generated square
     // Process the search result
-    if (rowCandidates)
+    while(1)
     {
       gettingRowId = __builtin_ctz(rowCandidates);
       // Process the new found row
@@ -719,6 +723,7 @@ void MovePairSearch::MoveRows()
 
             // Process the found square
             ProcessOrthoSquare();
+            break;
           }
           else
           {
@@ -849,10 +854,14 @@ void MovePairSearch::MoveRows()
             rowCandidates = (mask << 1) & rowsUsage;
 #endif
 #endif // AVX2/SSE2
+            if (!rowCandidates)
+                break;
           }
         }
     }
-    else
+
+    // 2nd loop (used to be "else" part) - handle case when there are no row candidates
+    while(1)
     {
       // Process not-founding of the new row: step backward, clear the flags of usage,
       // the history of usage, the list of current rows and clear the square itself
@@ -862,7 +871,7 @@ void MovePairSearch::MoveRows()
         DBG_DOWN();
         // Check if we are done
         if (0 == currentRowId)
-          break;
+          return;
         // Get saved values for previous row
         diagonalValues1 = diagonalValuesHistory[currentRowId-1][0];
         diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
@@ -870,6 +879,8 @@ void MovePairSearch::MoveRows()
         SetBit(rowsUsage, currentSquareRows[currentRowId]);
         // Get saved candidates
         rowCandidates = rowsHistory[currentRowId];
+        if (rowCandidates)
+            break;
     }
   }
 }
