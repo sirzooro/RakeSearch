@@ -24,14 +24,12 @@ ifeq ($(Native),1)
 # Tune for machine where app is compiled
 $(info ===== Compiling native app version =====)
 CXXFLAGS += -march=native -mtune=native
-else
-ifeq ($(SSE2),1)
+else ifeq ($(SSE2),1)
 # SSE2
 $(info ===== Compiling SSE2 app version =====)
 CXXFLAGS += -march=core2 -mtune=generic
 else
 $(info ===== Compiling default app version =====)
-endif
 endif
 
 all: $(PROGRAM)

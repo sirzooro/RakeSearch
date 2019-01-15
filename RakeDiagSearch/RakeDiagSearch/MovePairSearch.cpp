@@ -303,27 +303,11 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
   // Write the found square
 
   // Copy square and generate masks first
-#ifdef __AVX512F__
-  // AVX512 has "shift by vector" instruction, use it here
-  int n = 0;
-  for (; n < Rank*Rank-15; n += 16)
-  {
-    // Copy data
-    __m512i v = _mm512_load_si512 ((__m512i*)(&newSquare.Matrix[0][0] + n));
-    _mm512_store_si512((__m512i*)(&squareA[0][0] + n), v);
-
-    // Calculate bitmasks
-    v = _mm512_sllv_epi32(_mm512_set1_epi32(1), v);
-    _mm512_store_si512((__m512i*)(&squareA_Mask[0][0] + n), v);
-  }
-  // Process remaining elements
-  for (; n < Rank*Rank; n++)
-  {
-    *((&squareA[0][0] + n)) = *(&newSquare.Matrix[0][0] + n);
-    *((&squareA_Mask[0][0] + n)) = 1 << *(&newSquare.Matrix[0][0] + n);
-  }
-#elif defined(__AVX2__)
+#ifdef __AVX2__
   // AVX2 has "shift by vector" instruction, use it here
+  // Note: AVX512 instructions which use ZMM registers cause too bit
+  // CPU frequency throttling. It does not make sense to use them in this
+  // one place only, as everything else will be slowed down too.
   int n = 0;
   for (; n < Rank*Rank-7; n += 8)
   {

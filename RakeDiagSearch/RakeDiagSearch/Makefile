@@ -26,44 +26,28 @@ ifeq ($(Native),1)
 # Tune for machine where app is compiled
 $(info ===== Compiling native app version =====)
 CXXFLAGS += -march=native -mtune=native
-else
-ifeq ($(AVX512),1)
+else ifeq ($(AVX512),1)
 # AVX512+BMI2, 64-bit
 $(info ===== Compiling AVX512+BMI2 app version =====)
-CXXFLAGS += -march=core2 -mtune=generic -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2 -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq -m64
-else
-ifeq ($(AVX2),1)
+CXXFLAGS += -march=skylake-avx512 -mprefer-vector-width=256 -m64
+else ifeq ($(AVX2),1)
 # AVX2+BMI2, 64-bit
 $(info ===== Compiling AVX2+BMI2 app version =====)
-CXXFLAGS += -march=core2 -mtune=generic -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2 -m64
-else
-ifeq ($(AVX2noPEXT),1)
-# AVX2+BMI2, 64-bit, without PEXT instruction from BMI2 which is very slow on AMD Ryzen/Threadripper
-$(info ===== Compiling AVX2+BMI2 without PEXT app version =====)
-CXXFLAGS += -march=core2 -mtune=generic -msse4.2 -mpopcnt -mavx -mavx2 -mbmi -mbmi2 -m64 -DDISABLE_PEXT=1
-else
-ifeq ($(AVX),1)
+CXXFLAGS += -march=core2 -mtune=haswell -mpopcnt -mavx2 -mbmi -mbmi2 -m64
+else ifeq ($(AVX),1)
 # AVX, 64-bit
 $(info ===== Compiling AVX app version =====)
-CXXFLAGS += -march=core2 -mtune=generic -msse4.2 -mpopcnt -mavx -m64
-else
-ifeq ($(SSE2),1)
+CXXFLAGS += -march=core2 -mtune=sandybridge -mpopcnt -mavx -m64
+else ifeq ($(SSE2),1)
 # SSE2, 64-bit
 $(info ===== Compiling SSE2 app version =====)
 CXXFLAGS += -march=core2 -mtune=generic -m64
-else
-ifeq ($(NEON),1)
-# NEON (ARM only)
+else ifeq ($(NEON),1)
+# NEON (ARM only; AARCH64 has NEON by default)
 $(info ===== Compiling ARM NEON app version =====)
 CXXFLAGS += -mfloat-abi=hard -mfpu=neon
 else
 $(info ===== Compiling default app version =====)
-endif
-endif
-endif
-endif
-endif
-endif
 endif
 
 all: $(PROGRAM)
