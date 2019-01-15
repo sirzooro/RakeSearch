@@ -648,7 +648,7 @@ void MovePairSearch::MoveRows()
 
 #if defined(__AVX512F__) && defined(__AVX512VL__)
             // check if result is zero and get result as a bitmask
-            __mmask8 resultMask = _mm_cmpeq_epi16_mask(vCol1, _mm_setzero_si128());
+            __mmask8 resultMask = _mm_testn_epi16_mask(vCol1, vCol1);
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (resultMask << 1) & rowsUsage;
