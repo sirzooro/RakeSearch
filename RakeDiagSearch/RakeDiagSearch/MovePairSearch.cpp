@@ -294,6 +294,38 @@ void MovePairSearch::StartMoveSearch()
 }
 
 
+#if defined(__ARM_NEON) && !defined(__aarch64__)
+__attribute__((always_inline))
+inline void MovePairSearch::transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol)
+{
+  uint16x4_t v1, v2;
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+1][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+1][srcCol+2]));
+  uint16x4_t v1_1 = vuzp_u16(v1, v2).val[0];
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+2][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+2][srcCol+2]));
+  uint16x4_t v2_1 = vuzp_u16(v1, v2).val[0];
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+3][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+3][srcCol+2]));
+  uint16x4_t v3_1 = vuzp_u16(v1, v2).val[0];
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+4][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+4][srcCol+2]));
+  uint16x4_t v4_1 = vuzp_u16(v1, v2).val[0];
+  
+  uint16x4x2_t v12_2 = vtrn_u16(v1_1, v2_1);
+  uint16x4x2_t v34_2 = vtrn_u16(v3_1, v4_1);
+
+  uint32x2x2_t v13_3 = vtrn_u32(vreinterpret_u32_u16(v12_2.val[0]), vreinterpret_u32_u16(v34_2.val[0]));
+  uint32x2x2_t v24_3 = vtrn_u32(vreinterpret_u32_u16(v12_2.val[1]), vreinterpret_u32_u16(v34_2.val[1]));
+  
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+0][destCol+0]), v13_3.val[0]);
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+1][destCol+0]), v24_3.val[0]);
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+2][destCol+0]), v13_3.val[1]);
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+3][destCol+0]), v24_3.val[1]);
+}
+#endif
+
+
 // Event processor of DLS generation, will start the search for its pair
 void MovePairSearch::OnSquareGenerated(const Square& newSquare)
 {
@@ -305,7 +337,7 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
   // Copy square and generate masks first
 #ifdef __AVX2__
   // AVX2 has "shift by vector" instruction, use it here
-  // Note: AVX512 instructions which use ZMM registers cause too bit
+  // Note: AVX512 instructions which use ZMM registers cause too big
   // CPU frequency throttling. It does not make sense to use them in this
   // one place only, as everything else will be slowed down too.
   int n = 0;
@@ -524,10 +556,14 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
     }
   }
 #else // !__aarch64__
-  // TODO optimize this with NEON-32
+  transposeMatrix4x4(0, 0, 0, 0);
+  transposeMatrix4x4(0, 4, 4, 0);
+  transposeMatrix4x4(4, 0, 0, 4);
+  transposeMatrix4x4(4, 4, 4, 4);
+  
   for (int i = 1; i < Rank; i++)
   {
-    for (int j = 0; j < Rank; j++)
+    for (int j = 8; j < Rank; j++)
     {
       squareA_MaskT[j][i-1] = squareA_Mask[i][j];
     }

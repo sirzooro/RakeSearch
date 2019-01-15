@@ -36,6 +36,10 @@ private:
   void Write(std::ostream& os);     // Write the search state into stream
   void ShowSearchTotals();          // Display the total results of the search
   
+#if defined(__ARM_NEON) && !defined(__aarch64__)
+  void transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol);
+#endif
+  
   static void CopyRow(int* __restrict dst, int* __restrict src);
   static void SetRow(int* dst, int val);
 
