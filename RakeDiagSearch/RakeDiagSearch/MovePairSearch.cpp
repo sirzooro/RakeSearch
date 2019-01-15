@@ -322,8 +322,9 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
   // Process remaining elements
   for (; n < Rank*Rank; n++)
   {
-    *((&squareA[0][0] + n)) = *(&newSquare.Matrix[0][0] + n);
-    *((&squareA_Mask[0][0] + n)) = 1 << *(&newSquare.Matrix[0][0] + n);
+    int x = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA[0][0] + n)) = x;
+    *((&squareA_Mask[0][0] + n)) = 1 << x;
   }
 #elif defined(__SSSE3__)
   // SSSE3 added shuffle instruction, which can be used to build small lookup table.
@@ -360,16 +361,16 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
   // Process remaining elements
   for (; n < Rank*Rank; n++)
   {
-    *((&squareA[0][0] + n)) = *(&newSquare.Matrix[0][0] + n);
-    *((&squareA_Mask[0][0] + n)) = 1 << *(&newSquare.Matrix[0][0] + n);
+    int x = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA[0][0] + n)) = x;
+    *((&squareA_Mask[0][0] + n)) = 1 << x;
   }
-#elif defined(__ARM_NEON)
-  // TODO
-#ifdef __aarch64__
-#else // !__aarch64__
-#endif // !__aarch64__
 #else
   // Default non-SIMD code
+  // Note: this will be autovectorized for ARM NEON. gcc has limit how many times
+  // it can unroll loop, so single loop with manual vectorization would be slower.
+  // Two nested loops are below limit, so autovectorization creates expected
+  // machine code here.
   for (int i = 0; i < Rank; i++)
   {
     for (int j = 0; j < Rank; j++)
@@ -452,10 +453,88 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
     }
   }
 #elif defined(__ARM_NEON)
-  // TODO
 #ifdef __aarch64__
+  uint16x8_t v1, v2;
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[1][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[1][4]));
+  uint16x8_t v1_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[2][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[2][4]));
+  uint16x8_t v2_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[3][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[3][4]));
+  uint16x8_t v3_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[4][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[4][4]));
+  uint16x8_t v4_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[5][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[5][4]));
+  uint16x8_t v5_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[6][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[6][4]));
+  uint16x8_t v6_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[7][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[7][4]));
+  uint16x8_t v7_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[8][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[8][4]));
+  uint16x8_t v8_1 = vuzp1q_u16(v1, v2);
+  
+  uint16x8_t v1_2 = vtrn1q_u16(v1_1, v2_1);
+  uint16x8_t v2_2 = vtrn2q_u16(v1_1, v2_1);
+  uint16x8_t v3_2 = vtrn1q_u16(v3_1, v4_1);
+  uint16x8_t v4_2 = vtrn2q_u16(v3_1, v4_1);
+  uint16x8_t v5_2 = vtrn1q_u16(v5_1, v6_1);
+  uint16x8_t v6_2 = vtrn2q_u16(v5_1, v6_1);
+  uint16x8_t v7_2 = vtrn1q_u16(v7_1, v8_1);
+  uint16x8_t v8_2 = vtrn2q_u16(v7_1, v8_1);
+
+  uint32x4_t v1_3 = vtrn1q_u32(vreinterpretq_u32_u16(v1_2), vreinterpretq_u32_u16(v3_2));
+  uint32x4_t v2_3 = vtrn1q_u32(vreinterpretq_u32_u16(v2_2), vreinterpretq_u32_u16(v4_2));
+  uint32x4_t v3_3 = vtrn2q_u32(vreinterpretq_u32_u16(v1_2), vreinterpretq_u32_u16(v3_2));
+  uint32x4_t v4_3 = vtrn2q_u32(vreinterpretq_u32_u16(v2_2), vreinterpretq_u32_u16(v4_2));
+  uint32x4_t v5_3 = vtrn1q_u32(vreinterpretq_u32_u16(v5_2), vreinterpretq_u32_u16(v7_2));
+  uint32x4_t v6_3 = vtrn1q_u32(vreinterpretq_u32_u16(v6_2), vreinterpretq_u32_u16(v8_2));
+  uint32x4_t v7_3 = vtrn2q_u32(vreinterpretq_u32_u16(v5_2), vreinterpretq_u32_u16(v7_2));
+  uint32x4_t v8_3 = vtrn2q_u32(vreinterpretq_u32_u16(v6_2), vreinterpretq_u32_u16(v8_2));
+  
+  uint64x2_t v1_4 = vtrn1q_u64(vreinterpretq_u64_u32(v1_3), vreinterpretq_u64_u32(v5_3));
+  uint64x2_t v2_4 = vtrn1q_u64(vreinterpretq_u64_u32(v2_3), vreinterpretq_u64_u32(v6_3));
+  uint64x2_t v3_4 = vtrn1q_u64(vreinterpretq_u64_u32(v3_3), vreinterpretq_u64_u32(v7_3));
+  uint64x2_t v4_4 = vtrn1q_u64(vreinterpretq_u64_u32(v4_3), vreinterpretq_u64_u32(v8_3));
+  uint64x2_t v5_4 = vtrn2q_u64(vreinterpretq_u64_u32(v1_3), vreinterpretq_u64_u32(v5_3));
+  uint64x2_t v6_4 = vtrn2q_u64(vreinterpretq_u64_u32(v2_3), vreinterpretq_u64_u32(v6_3));
+  uint64x2_t v7_4 = vtrn2q_u64(vreinterpretq_u64_u32(v3_3), vreinterpretq_u64_u32(v7_3));
+  uint64x2_t v8_4 = vtrn2q_u64(vreinterpretq_u64_u32(v4_3), vreinterpretq_u64_u32(v8_3));
+  
+  vst1q_u64((uint64_t*)(&squareA_MaskT[0][0]), v1_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[1][0]), v2_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[2][0]), v3_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[3][0]), v4_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[4][0]), v5_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[5][0]), v6_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[6][0]), v7_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[7][0]), v8_4);
+  
+  for (int i = 1; i < Rank; i++)
+  {
+    for (int j = 8; j < Rank; j++)
+    {
+      squareA_MaskT[j][i-1] = squareA_Mask[i][j];
+    }
+  }
 #else // !__aarch64__
+  // TODO optimize this with NEON-32
+  for (int i = 1; i < Rank; i++)
+  {
+    for (int j = 0; j < Rank; j++)
+    {
+      squareA_MaskT[j][i-1] = squareA_Mask[i][j];
+    }
+  }
 #endif // !__aarch64__
+#else
+  // Non-SIMD code does not use squareA_MaskT, so nothing here
 #endif // __SSE2__
 
   // Start the rows permutation
