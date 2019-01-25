@@ -515,6 +515,16 @@ inline void Generator::StartImpl()
             // Process the found square
             ProcessSquare();
             
+            // Check the finish condition of search
+            if (!IsKeyValueEmpty::value)
+            {
+              // Set the flag if the terminal value is other
+              if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
+              {
+                break;
+              }
+            }
+            
             break;
           }
           else
@@ -529,6 +539,16 @@ inline void Generator::StartImpl()
             
             // Step forward
             cellId++;
+            
+            // Check the finish condition of search
+            if (!IsKeyValueEmpty::value)
+            {
+              // Set the flag if the terminal value is other
+              if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
+              {
+                break;
+              }
+            }
             
             // Selection of the value for the next cell
             // Read coordinates of the cell
@@ -552,10 +572,13 @@ inline void Generator::StartImpl()
             cellId--;
 
             // Check the finish condition of search
-            // Set the flag if the terminal value is "-1" which means we must leave the cell
-            if (cellId < 0 /*&& IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId])*/)
+            if (IsKeyValueEmpty::value)
             {
-              return;
+              // Set the flag if the terminal value is "-1" which means we must leave the cell
+              if (cellId < 0 /*&& IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId])*/)
+              {
+                return;
+              }
             }
             
             // Selection of the value for the next cell
