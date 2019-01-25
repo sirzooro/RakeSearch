@@ -484,128 +484,94 @@ inline void Generator::StartImpl()
   this->columnId = path[cellsInPath - 1][1];
   this->cellId = cellsInPath - 1;
 
+  // Selection of the value for the next cell
+  // Read coordinates of the cell
+  rowId = path[cellId][0];
+  columnId = path[cellId][1];
+
+  // Generate new value for the cell (rowId, columnId)
+  // Select the value for the cell
+  // Check the i value for possibility to be written into the cell (rowId, columnId)
+  cellValue = columns[columnId] & rows[rowId];
+  //cellsHistory[rowId][columnId] = cellValue;
+
   if (isInitialized == Yes)
   {
     // Selection of the cells values
     while(1)
     {
-      // Selection of the value for the next cell
-        // Read coordinates of the cell
-        rowId = path[cellId][0];
-        columnId = path[cellId][1];
-
-        // Generate new value for the cell (rowId, columnId)
-          // Select the value for the cell
-          // Check the i value for possibility to be written into the cell (rowId, columnId)
-          cellValue = columns[columnId] & rows[rowId] & cellsHistory[rowId][columnId];
-
-          // Test the value: has it been used in diagonals
-          // Test the main diagonal
-          /*if(columnId == rowId)
-          {
-            cellValue &= primary;
-          }
-
-          // Test the secondary diagonal
-          if (rowId == Rank - 1 - columnId)
-          {
-            cellValue &= secondary;
-          }*/
-
         // Process the search result
         if (cellValue)
         {
           // Extract lowest bit set
-          int bits = (-cellValue) & cellValue;
-          // Mark the value in the history of cell values
-          cellsHistory[rowId][columnId] ^= bits;
-
-          // Read the current value
-          oldCellValue = newSquare.Matrix[rowId][columnId];
-          // If it is there, set corresponding bit it bits to restore the previous value too.
-          // Both bits will be swapped using XOR instructions.
-          // History is not cleared, because we are working with this cell.
-          if (!IsCellEmpty(oldCellValue))
-            bits |= 1 << oldCellValue;
-
-          // Mark/restore the value in columns
-          columns[columnId] ^= bits;
-          // Mark/restore the value in rows
-          rows[rowId] ^= bits;
-          // Mark/restore the value in diagonals
-          /*if (rowId == columnId)
-          {
-            primary ^= bits;
-          }
-          if (rowId == Rank - 1 - columnId)
-          {
-            secondary ^= bits;
-          }*/
+          int bit = (-cellValue) & cellValue;
+          
           // Write the value into the square
-          newSquare.Matrix[rowId][columnId] = __builtin_ctz(cellValue);
+          newSquare.Matrix[rowId][columnId] = __builtin_ctz(bit);
 
           // Process the finish of the square generation
           if (cellId == cellsInPath - 1)
           {
             // Process the found square
             ProcessSquare();
+            
+            cellValue = 0;
+            //++cellId;
           }
           else
           {
+            // Mark the value in columns
+            columns[columnId] &= ~bit;
+            // Mark the value in rows
+            rows[rowId] &= ~bit;
+
+            // Mark the value in the history of cell values
+            cellsHistory[rowId][columnId] = cellValue & ~bit;
+            
             // Step forward
             cellId++;
+            
+            // Selection of the value for the next cell
+            // Read coordinates of the cell
+            rowId = path[cellId][0];
+            columnId = path[cellId][1];
+
+            // Generate new value for the cell (rowId, columnId)
+            // Select the value for the cell
+            // Check the i value for possibility to be written into the cell (rowId, columnId)
+            cellValue = columns[columnId] & rows[rowId];
+            //cellsHistory[rowId][columnId] = cellValue;
           }
         }
         else
         {
-          // Process the fact of not-founding a new value in the cell (rowId; columnId)
-            // Restore the previous value from the square into arrays 
-              // Read the current value
-              cellValue = newSquare.Matrix[rowId][columnId];
-              // Restore the value into auxilary arrays
-              if (!IsCellEmpty(cellValue))
-              {
-                // Restore the value into columns
-                SetFree(columns[columnId], cellValue);
-                // Restore the value into rows
-                SetFree(rows[rowId], cellValue);
-                // Restore the value into diagonals
-                /*if (rowId == columnId)
-                {
-                  SetFree(primary, cellValue);
-                }
-                if (rowId == Rank - 1 - columnId)
-                {
-                  SetFree(secondary, cellValue);
-                }*/
-                // Reset the cell of the square
-                newSquare.Matrix[rowId][columnId] = Square::Empty;
-                // Clear the history of the cell (rowId, columnId)
-                cellsHistory[rowId][columnId] = AllBitsMask(Rank);
-              }
-
             // Step backward
             cellId--;
 
             // Check the finish condition of search
-            if (IsKeyValueEmpty::value)
+            // Set the flag if the terminal value is "-1" which means we must leave the cell
+            if (cellId < 0 /*&& IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId])*/)
             {
-              // Set the flag if the terminal value is "-1" which means we must leave the cell
-              if (cellId < 0 && IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId]))
-              {
-                break;
-              }
+              return;
             }
-        }
-
-        // Check the finish condition of search
-        if (!IsKeyValueEmpty::value)
-        {
-          // Set the flag if the terminal value is other
-          if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
-          {
-            break;
-          }
+            
+            // Selection of the value for the next cell
+            // Read coordinates of the cell
+            rowId = path[cellId][0];
+            columnId = path[cellId][1];
+            
+            // Process the fact of not-founding a new value in the cell (rowId; columnId)
+            // Restore the previous value from the square into arrays 
+              // Read the current value
+              cellValue = newSquare.Matrix[rowId][columnId];
+              
+              // Restore the value into auxilary arrays
+                // Restore the value into columns
+                SetFree(columns[columnId], cellValue);
+                // Restore the value into rows
+                SetFree(rows[rowId], cellValue);
+                
+                cellValue = cellsHistory[rowId][columnId];
         }
     }
   }
