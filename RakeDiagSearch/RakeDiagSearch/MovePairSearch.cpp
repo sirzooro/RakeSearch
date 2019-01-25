@@ -682,7 +682,7 @@ void MovePairSearch::MoveRows()
   // Note: code below assumes that rowCandidates is non-zero at beginning
   // so 1st nested while loop should execute first. If it may not be the case,
   // change code to handle this.
-  // 1st loop (used to be "if" part) - handle case when at least one row candidate is present
+  // 1st loop (used to be "if (rowCandidates)" part) - handle case when at least one row candidate is present
   while (1)
   {
     // Select a row from the initial square for the position currentRowId of the generated square

@@ -465,7 +465,7 @@ template<typename IsKeyValueEmpty>
 inline void Generator::StartImpl()
 {
   int cellValue;    // New value for the cell
-  int oldCellValue; // Old value from the cell
+  int cellValueCandidates; // Candidates for value for the cell
 
   // Create constant copies of used fields to speedup calculations
   const int_fast32_t cellsInPath = this->cellsInPath;
@@ -492,8 +492,7 @@ inline void Generator::StartImpl()
   // Generate new value for the cell (rowId, columnId)
   // Select the value for the cell
   // Check the i value for possibility to be written into the cell (rowId, columnId)
-  cellValue = columns[columnId] & rows[rowId];
-  //cellsHistory[rowId][columnId] = cellValue;
+  cellValueCandidates = columns[columnId] & rows[rowId];
 
   if (isInitialized == Yes)
   {
@@ -501,10 +500,11 @@ inline void Generator::StartImpl()
     while(1)
     {
         // Process the search result
-        if (cellValue)
+        // 1st loop (used to be "if (cellValueCandidates)" part) - handle case when at least one cell value candidate is present
+        while (1)
         {
           // Extract lowest bit set
-          int bit = (-cellValue) & cellValue;
+          int bit = (-cellValueCandidates) & cellValueCandidates;
           
           // Write the value into the square
           newSquare.Matrix[rowId][columnId] = __builtin_ctz(bit);
@@ -515,8 +515,7 @@ inline void Generator::StartImpl()
             // Process the found square
             ProcessSquare();
             
-            cellValue = 0;
-            //++cellId;
+            break;
           }
           else
           {
@@ -526,7 +525,7 @@ inline void Generator::StartImpl()
             rows[rowId] &= ~bit;
 
             // Mark the value in the history of cell values
-            cellsHistory[rowId][columnId] = cellValue & ~bit;
+            cellsHistory[rowId][columnId] = cellValueCandidates & ~bit;
             
             // Step forward
             cellId++;
@@ -539,11 +538,15 @@ inline void Generator::StartImpl()
             // Generate new value for the cell (rowId, columnId)
             // Select the value for the cell
             // Check the i value for possibility to be written into the cell (rowId, columnId)
-            cellValue = columns[columnId] & rows[rowId];
-            //cellsHistory[rowId][columnId] = cellValue;
+            cellValueCandidates = columns[columnId] & rows[rowId];
+            
+            if (!cellValueCandidates)
+              break;
           }
         }
-        else
+        
+        // 2nd loop (used to be "else" part) - handle case when there are no cell value candidates
+        while (1)
         {
             // Step backward
             cellId--;
@@ -571,7 +574,10 @@ inline void Generator::StartImpl()
                 // Restore the value into rows
                 SetFree(rows[rowId], cellValue);
                 
-                cellValue = cellsHistory[rowId][columnId];
+                cellValueCandidates = cellsHistory[rowId][columnId];
+                
+                if (cellValueCandidates)
+                  break;
         }
     }
   }
