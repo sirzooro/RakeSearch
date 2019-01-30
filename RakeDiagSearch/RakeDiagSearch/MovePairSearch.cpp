@@ -165,14 +165,18 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
 		// Read the state from the checkpoint file
 		try
 		{
-			Read(checkpointFile);
 			isStartFromCheckpoint = 1;
+			Read(checkpointFile);
 		}
 		catch (...)
 		{
 			cerr << "Error opening checkpoint file! Starting with workunit start parameters." << endl;
 			isStartFromCheckpoint = 0;
 		}
+    }
+    else
+    {
+        isStartFromCheckpoint = 0;
     }
 
 	if (isStartFromCheckpoint != 1)

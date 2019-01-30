@@ -270,7 +270,54 @@ void Generator::Read(std::istream& is)
 
     // Read the number of generated squares
     is >> squaresCount;
-
+    
+    // Data loaded. Perform necessary post-loading tasks.
+    if (cellId == cellsInPath - 1)
+    {
+        // Start from WU
+        // Convert old checkpoint format to new one if used
+        int row = path[cellsInPath - 2][0], col = path[cellsInPath - 2][1];
+        if (0 != cellsHistory[row][col])
+        {
+            int tmpColumns[Rank];
+            int tmpRows[Rank];
+            memcpy(tmpColumns, columns, sizeof(columns));
+            memcpy(tmpRows, rows, sizeof(rows));
+            
+            // Convert cellsHistory into candidates
+            for (int i = cellsInPath - 1; i >= 0; --i)
+            {
+                row = path[i][0];
+                col = path[i][1];
+                int bit = 1 << newSquare.Matrix[row][col];
+                tmpColumns[col] |= bit;
+                tmpRows[row] |= bit;
+                cellsHistory[row][col] &= tmpColumns[col] & tmpRows[row];
+                
+                // Update rows/cols data for last cell in path, it is no longer set
+                if (i == cellsInPath - 1)
+                {
+                    columns[col] = tmpColumns[col];
+                    rows[row] = tmpRows[row];
+                }
+            }
+        }
+    }
+    else
+    {
+        // Start from checkpoint
+        // Check if there are no cells on diagonals in path
+        for (int i = 0; i < cellsInPath; i++)
+        {
+            int row = path[i][0], col = path[i][1];
+            if ((row == col) || (row == Rank - 1 - col))
+            {
+                std::cerr << "Error: Cell on diagonal in path! R=" << row << " C=" << col << std::endl;
+                return;
+            }
+        }
+    }
+    
     // Set initialization flag
     isInitialized = Yes;
   }
@@ -496,6 +543,10 @@ inline void Generator::StartImpl()
 
   if (isInitialized == Yes)
   {
+    // Check if there are no candidates at the beginning, or if calculations are resumed from checkpoint
+    if ((cellId == cellsInPath - 1) || (0 == cellValueCandidates))
+      goto StepDown;
+    
     // Selection of the cells values
     while(1)
     {
@@ -566,6 +617,7 @@ inline void Generator::StartImpl()
         }
         
         // 2nd loop (used to be "else" part) - handle case when there are no cell value candidates
+StepDown:
         while (1)
         {
             // Step backward
