@@ -83,31 +83,6 @@ inline void MovePairSearch::SetRow(int* dst, int val)
 MovePairSearch::MovePairSearch()
 {
   Reset();
-  InitMask4to1bits();
-}
-
-// Initialize mask4to1bits lookup table
-void MovePairSearch::InitMask4to1bits()
-{
-#if defined(__SSE2__) && (!defined(__AVX2__) || defined(DISABLE_PEXT))
-  memset(mask4to1bits, 0, sizeof(mask4to1bits));
-  mask4to1bits[0x0000] = 0;
-  mask4to1bits[0x000f] = 1;
-  mask4to1bits[0x00f0] = 2;
-  mask4to1bits[0x00ff] = 3;
-  mask4to1bits[0x0f00] = 4;
-  mask4to1bits[0x0f0f] = 5;
-  mask4to1bits[0x0ff0] = 6;
-  mask4to1bits[0x0fff] = 7;
-  mask4to1bits[0xf000] = 8;
-  mask4to1bits[0xf00f] = 9;
-  mask4to1bits[0xf0f0] = 10;
-  mask4to1bits[0xf0ff] = 11;
-  mask4to1bits[0xff00] = 12;
-  mask4to1bits[0xff0f] = 13;
-  mask4to1bits[0xfff0] = 14;
-  mask4to1bits[0xffff] = 15;
-#endif
 }
 
 // Reset search settings
@@ -190,14 +165,18 @@ void MovePairSearch::InitializeMoveSearch(string start, string result,
 		// Read the state from the checkpoint file
 		try
 		{
-			Read(checkpointFile);
 			isStartFromCheckpoint = 1;
+			Read(checkpointFile);
 		}
 		catch (...)
 		{
 			cerr << "Error opening checkpoint file! Starting with workunit start parameters." << endl;
 			isStartFromCheckpoint = 0;
 		}
+    }
+    else
+    {
+        isStartFromCheckpoint = 0;
     }
 
 	if (isStartFromCheckpoint != 1)
@@ -319,24 +298,284 @@ void MovePairSearch::StartMoveSearch()
 }
 
 
+#if defined(__ARM_NEON) && !defined(__aarch64__)
+__attribute__((always_inline))
+inline void MovePairSearch::transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol)
+{
+  uint16x4_t v1, v2;
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+1][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+1][srcCol+2]));
+  uint16x4_t v1_1 = vuzp_u16(v1, v2).val[0];
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+2][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+2][srcCol+2]));
+  uint16x4_t v2_1 = vuzp_u16(v1, v2).val[0];
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+3][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+3][srcCol+2]));
+  uint16x4_t v3_1 = vuzp_u16(v1, v2).val[0];
+  v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+4][srcCol+0]));
+  v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow+4][srcCol+2]));
+  uint16x4_t v4_1 = vuzp_u16(v1, v2).val[0];
+  
+  uint16x4x2_t v12_2 = vtrn_u16(v1_1, v2_1);
+  uint16x4x2_t v34_2 = vtrn_u16(v3_1, v4_1);
+
+  uint32x2x2_t v13_3 = vtrn_u32(vreinterpret_u32_u16(v12_2.val[0]), vreinterpret_u32_u16(v34_2.val[0]));
+  uint32x2x2_t v24_3 = vtrn_u32(vreinterpret_u32_u16(v12_2.val[1]), vreinterpret_u32_u16(v34_2.val[1]));
+  
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+0][destCol+0]), v13_3.val[0]);
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+1][destCol+0]), v24_3.val[0]);
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+2][destCol+0]), v13_3.val[1]);
+  vst1_u32((uint32_t*)(&squareA_MaskT[destRow+3][destCol+0]), v24_3.val[1]);
+}
+#endif
+
+
 // Event processor of DLS generation, will start the search for its pair
-void MovePairSearch::OnSquareGenerated(Square newSquare)
+void MovePairSearch::OnSquareGenerated(const Square& newSquare)
 {
   // Reset before the search for orthogonal squares
   ClearBeforeNextSearch();
 
   // Write the found square
+
+  // Copy square and generate masks first
+#ifdef __AVX2__
+  // AVX2 has "shift by vector" instruction, use it here
+  // Note: AVX512 instructions which use ZMM registers cause too big
+  // CPU frequency throttling. It does not make sense to use them in this
+  // one place only, as everything else will be slowed down too.
+  int n = 0;
+  for (; n < Rank*Rank-7; n += 8)
+  {
+    // Copy data
+    __m256i v = _mm256_load_si256 ((__m256i*)(&newSquare.Matrix[0][0] + n));
+    _mm256_store_si256((__m256i*)(&squareA[0][0] + n), v);
+
+    // Calculate bitmasks
+    v = _mm256_sllv_epi32(_mm256_set1_epi32(1), v);
+    _mm256_store_si256((__m256i*)(&squareA_Mask[0][0] + n), v);
+  }
+  // Process remaining elements
+  for (; n < Rank*Rank; n++)
+  {
+    int x = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA[0][0] + n)) = x;
+    *((&squareA_Mask[0][0] + n)) = 1 << x;
+  }
+#elif defined(__SSSE3__)
+  // SSSE3 added shuffle instruction, which can be used to build small lookup table.
+  // Maximum val (256) needs 9 bytes. Fortunately all values can be decreased by one,
+  // so all of them will fit in 8 bits here.
+  const __m128i vcLut = _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 255, 127, 63, 31, 15, 7, 3, 1, 0);
+  const __m128i vc1 = _mm_set1_epi16(1);
+  const __m128i vc0 = _mm_setzero_si128();
+  int n = 0;
+  for (; n < Rank*Rank-7; n += 8)
+  {
+    // Copy data
+    __m128i v1 = _mm_load_si128((__m128i*)(&newSquare.Matrix[0][0] + n));
+    __m128i v2 = _mm_load_si128((__m128i*)(&newSquare.Matrix[0][0] + n + 4));
+    _mm_store_si128((__m128i*)(&squareA[0][0] + n), v1);
+    _mm_store_si128((__m128i*)(&squareA[0][0] + n + 4), v2);
+
+    // Pack two 32x4 vectors into one 8x16
+    v1 = _mm_packs_epi32(v1, v2);
+    v1 = _mm_packs_epi16(v1, vc0);
+    // Get maak fom LUT
+    v1 = _mm_shuffle_epi8(vcLut, v1);
+    // Convert vector 8x16 to 16x8, and increment values by one
+    v1 = _mm_unpacklo_epi8(v1, vc0);
+    v1 = _mm_add_epi16(v1, vc1);
+
+    // Convert vector 16x8 into two 32x4, and store results
+    v2 = _mm_unpackhi_epi16(v1, vc0);
+    v1 = _mm_unpacklo_epi16(v1, vc0);
+
+    _mm_store_si128((__m128i*)(&squareA_Mask[0][0] + n), v1);
+    _mm_store_si128((__m128i*)(&squareA_Mask[0][0] + n + 4), v2);
+  }
+  // Process remaining elements
+  for (; n < Rank*Rank; n++)
+  {
+    int x = *(&newSquare.Matrix[0][0] + n);
+    *((&squareA[0][0] + n)) = x;
+    *((&squareA_Mask[0][0] + n)) = 1 << x;
+  }
+#else
+  // Default non-SIMD code
+  // Note: this will be autovectorized for ARM NEON. gcc has limit how many times
+  // it can unroll loop, so single loop with manual vectorization would be slower.
+  // Two nested loops are below limit, so autovectorization creates expected
+  // machine code here.
   for (int i = 0; i < Rank; i++)
   {
     for (int j = 0; j < Rank; j++)
     {
       squareA[i][j] = newSquare.Matrix[i][j];
       squareA_Mask[i][j] = 1u << newSquare.Matrix[i][j];
-#if defined (__SSE2__) || defined(__ARM_NEON)
-      squareA_MaskT[j][i] = squareA_Mask[i][j];
-#endif
     }
   }
+#endif
+
+  // Create transposed copy of squareA_Mask if needed
+#ifdef __SSE2__
+  __m128i v1, v2;
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][4]));
+  __m128i v1_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[2][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[2][4]));
+  __m128i v2_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[3][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[3][4]));
+  __m128i v3_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[4][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[4][4]));
+  __m128i v4_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[5][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[5][4]));
+  __m128i v5_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[6][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[6][4]));
+  __m128i v6_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[7][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[7][4]));
+  __m128i v7_1 = _mm_packs_epi32(v1, v2);
+  v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[8][0]));
+  v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[8][4]));
+  __m128i v8_1 = _mm_packs_epi32(v1, v2);
+
+  __m128i v1_2 = _mm_unpacklo_epi16(v1_1, v2_1);
+  __m128i v2_2 = _mm_unpackhi_epi16(v1_1, v2_1);
+  __m128i v3_2 = _mm_unpacklo_epi16(v3_1, v4_1);
+  __m128i v4_2 = _mm_unpackhi_epi16(v3_1, v4_1);
+  __m128i v5_2 = _mm_unpacklo_epi16(v5_1, v6_1);
+  __m128i v6_2 = _mm_unpackhi_epi16(v5_1, v6_1);
+  __m128i v7_2 = _mm_unpacklo_epi16(v7_1, v8_1);
+  __m128i v8_2 = _mm_unpackhi_epi16(v7_1, v8_1);
+
+  __m128i v1_3 = _mm_unpacklo_epi32(v1_2, v3_2);
+  __m128i v2_3 = _mm_unpackhi_epi32(v1_2, v3_2);
+  __m128i v3_3 = _mm_unpacklo_epi32(v2_2, v4_2);
+  __m128i v4_3 = _mm_unpackhi_epi32(v2_2, v4_2);
+  __m128i v5_3 = _mm_unpacklo_epi32(v5_2, v7_2);
+  __m128i v6_3 = _mm_unpackhi_epi32(v5_2, v7_2);
+  __m128i v7_3 = _mm_unpacklo_epi32(v6_2, v8_2);
+  __m128i v8_3 = _mm_unpackhi_epi32(v6_2, v8_2);
+
+  __m128i v1_4 = _mm_unpacklo_epi64(v1_3, v5_3);
+  __m128i v2_4 = _mm_unpackhi_epi64(v1_3, v5_3);
+  __m128i v3_4 = _mm_unpacklo_epi64(v2_3, v6_3);
+  __m128i v4_4 = _mm_unpackhi_epi64(v2_3, v6_3);
+  __m128i v5_4 = _mm_unpacklo_epi64(v3_3, v7_3);
+  __m128i v6_4 = _mm_unpackhi_epi64(v3_3, v7_3);
+  __m128i v7_4 = _mm_unpacklo_epi64(v4_3, v8_3);
+  __m128i v8_4 = _mm_unpackhi_epi64(v4_3, v8_3);
+
+  _mm_store_si128((__m128i*)(&squareA_MaskT[0][0]), v1_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[1][0]), v2_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[2][0]), v3_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[3][0]), v4_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[4][0]), v5_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[5][0]), v6_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[6][0]), v7_4);
+  _mm_store_si128((__m128i*)(&squareA_MaskT[7][0]), v8_4);
+
+  for (int i = 1; i < Rank; i++)
+  {
+    for (int j = 8; j < Rank; j++)
+    {
+      squareA_MaskT[j][i-1] = squareA_Mask[i][j];
+    }
+  }
+#elif defined(__ARM_NEON)
+#ifdef __aarch64__
+  uint16x8_t v1, v2;
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[1][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[1][4]));
+  uint16x8_t v1_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[2][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[2][4]));
+  uint16x8_t v2_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[3][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[3][4]));
+  uint16x8_t v3_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[4][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[4][4]));
+  uint16x8_t v4_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[5][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[5][4]));
+  uint16x8_t v5_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[6][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[6][4]));
+  uint16x8_t v6_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[7][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[7][4]));
+  uint16x8_t v7_1 = vuzp1q_u16(v1, v2);
+  v1 = vld1q_u16((uint16_t*)(&squareA_Mask[8][0]));
+  v2 = vld1q_u16((uint16_t*)(&squareA_Mask[8][4]));
+  uint16x8_t v8_1 = vuzp1q_u16(v1, v2);
+  
+  uint16x8_t v1_2 = vtrn1q_u16(v1_1, v2_1);
+  uint16x8_t v2_2 = vtrn2q_u16(v1_1, v2_1);
+  uint16x8_t v3_2 = vtrn1q_u16(v3_1, v4_1);
+  uint16x8_t v4_2 = vtrn2q_u16(v3_1, v4_1);
+  uint16x8_t v5_2 = vtrn1q_u16(v5_1, v6_1);
+  uint16x8_t v6_2 = vtrn2q_u16(v5_1, v6_1);
+  uint16x8_t v7_2 = vtrn1q_u16(v7_1, v8_1);
+  uint16x8_t v8_2 = vtrn2q_u16(v7_1, v8_1);
+
+  uint32x4_t v1_3 = vtrn1q_u32(vreinterpretq_u32_u16(v1_2), vreinterpretq_u32_u16(v3_2));
+  uint32x4_t v2_3 = vtrn1q_u32(vreinterpretq_u32_u16(v2_2), vreinterpretq_u32_u16(v4_2));
+  uint32x4_t v3_3 = vtrn2q_u32(vreinterpretq_u32_u16(v1_2), vreinterpretq_u32_u16(v3_2));
+  uint32x4_t v4_3 = vtrn2q_u32(vreinterpretq_u32_u16(v2_2), vreinterpretq_u32_u16(v4_2));
+  uint32x4_t v5_3 = vtrn1q_u32(vreinterpretq_u32_u16(v5_2), vreinterpretq_u32_u16(v7_2));
+  uint32x4_t v6_3 = vtrn1q_u32(vreinterpretq_u32_u16(v6_2), vreinterpretq_u32_u16(v8_2));
+  uint32x4_t v7_3 = vtrn2q_u32(vreinterpretq_u32_u16(v5_2), vreinterpretq_u32_u16(v7_2));
+  uint32x4_t v8_3 = vtrn2q_u32(vreinterpretq_u32_u16(v6_2), vreinterpretq_u32_u16(v8_2));
+  
+  uint64x2_t v1_4 = vtrn1q_u64(vreinterpretq_u64_u32(v1_3), vreinterpretq_u64_u32(v5_3));
+  uint64x2_t v2_4 = vtrn1q_u64(vreinterpretq_u64_u32(v2_3), vreinterpretq_u64_u32(v6_3));
+  uint64x2_t v3_4 = vtrn1q_u64(vreinterpretq_u64_u32(v3_3), vreinterpretq_u64_u32(v7_3));
+  uint64x2_t v4_4 = vtrn1q_u64(vreinterpretq_u64_u32(v4_3), vreinterpretq_u64_u32(v8_3));
+  uint64x2_t v5_4 = vtrn2q_u64(vreinterpretq_u64_u32(v1_3), vreinterpretq_u64_u32(v5_3));
+  uint64x2_t v6_4 = vtrn2q_u64(vreinterpretq_u64_u32(v2_3), vreinterpretq_u64_u32(v6_3));
+  uint64x2_t v7_4 = vtrn2q_u64(vreinterpretq_u64_u32(v3_3), vreinterpretq_u64_u32(v7_3));
+  uint64x2_t v8_4 = vtrn2q_u64(vreinterpretq_u64_u32(v4_3), vreinterpretq_u64_u32(v8_3));
+  
+  vst1q_u64((uint64_t*)(&squareA_MaskT[0][0]), v1_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[1][0]), v2_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[2][0]), v3_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[3][0]), v4_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[4][0]), v5_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[5][0]), v6_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[6][0]), v7_4);
+  vst1q_u64((uint64_t*)(&squareA_MaskT[7][0]), v8_4);
+  
+  for (int i = 1; i < Rank; i++)
+  {
+    for (int j = 8; j < Rank; j++)
+    {
+      squareA_MaskT[j][i-1] = squareA_Mask[i][j];
+    }
+  }
+#else // !__aarch64__
+  transposeMatrix4x4(0, 0, 0, 0);
+  transposeMatrix4x4(0, 4, 4, 0);
+  transposeMatrix4x4(4, 0, 0, 4);
+  transposeMatrix4x4(4, 4, 4, 4);
+  
+  for (int i = 1; i < Rank; i++)
+  {
+    for (int j = 8; j < Rank; j++)
+    {
+      squareA_MaskT[j][i-1] = squareA_Mask[i][j];
+    }
+  }
+#endif // !__aarch64__
+#else
+  // Non-SIMD code does not use squareA_MaskT, so nothing here
+#endif // __SSE2__
 
   // Start the rows permutation
   MoveRows();
@@ -435,25 +674,26 @@ void MovePairSearch::MoveRows()
 
 #ifdef __ARM_NEON
   // Set the powers of 2
-  const uint32_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
+  const uint16_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 #ifdef __aarch64__
-  const uint32x4_t vPowersOf2Lo = vld1q_u32(powersOf2);
-  const uint32x4_t vPowersOf2Hi = vld1q_u32(powersOf2+4);
+  const uint16x8_t vPowersOf2 = vld1q_u16(powersOf2);
 #else
-  const uint32x2_t vPowersOf2_1 = vld1_u32(powersOf2);
-  const uint32x2_t vPowersOf2_2 = vld1_u32(powersOf2+2);
-  const uint32x2_t vPowersOf2_3 = vld1_u32(powersOf2+4);
-  const uint32x2_t vPowersOf2_4 = vld1_u32(powersOf2+6);
+  const uint16x4_t vPowersOf2Lo = vld1_u16(powersOf2);
+  const uint16x4_t vPowersOf2Hi = vld1_u16(powersOf2+4);
 #endif
 #endif
 
+  // Note: code below assumes that rowCandidates is non-zero at beginning
+  // so 1st nested while loop should execute first. If it may not be the case,
+  // change code to handle this.
+  // 1st loop (used to be "if (rowCandidates)" part) - handle case when at least one row candidate is present
   while (1)
   {
     // Select a row from the initial square for the position currentRowId of the generated square
     // Process the search result
-    if (rowCandidates)
+    while(1)
     {
-      gettingRowId = ffs(rowCandidates) - 1;
+      gettingRowId = __builtin_ctz(rowCandidates);
       // Process the new found row
 
       // Mark the row in the history of the used rows
@@ -487,6 +727,7 @@ void MovePairSearch::MoveRows()
 
             // Process the found square
             ProcessOrthoSquare();
+            break;
           }
           else
           {
@@ -511,111 +752,67 @@ void MovePairSearch::MoveRows()
             currentRowId++;
             DBG_UP();
 
-#ifdef __AVX2__
+#ifdef __SSE2__
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            __m256i vCol1 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[currentRowId][1]);
-            __m256i vCol2 = _mm256_loadu_si256((const __m256i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
+            __m128i vCol1 = _mm_load_si128((const __m128i*)&squareA_MaskT[currentRowId][0]);
+            __m128i vCol2 = _mm_load_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
 
             // AND loaded values with diagnonal masks
-            __m256i vDiagMask1 = _mm256_set1_epi32(diagonalValues1);
-            __m256i vDiagMask2 = _mm256_set1_epi32(diagonalValues2);
+            __m128i vDiagMask1 = _mm_set1_epi16(diagonalValues1);
+            __m128i vDiagMask2 = _mm_set1_epi16(diagonalValues2);
 
-            vCol1 = _mm256_and_si256(vCol1, vDiagMask1);
-            vCol2 = _mm256_and_si256(vCol2, vDiagMask2);
+            vCol1 = _mm_and_si128(vCol1, vDiagMask1);
+            vCol2 = _mm_and_si128(vCol2, vDiagMask2);
 
             // non-zero means that number is duplicated, zero means that it is unique
             // OR these values together first
-            vCol1 = _mm256_or_si256(vCol1, vCol2);
+            vCol1 = _mm_or_si128(vCol1, vCol2);
 
 #if defined(__AVX512F__) && defined(__AVX512VL__)
             // check if result is zero and get result as a bitmask
-            __mmask8 resultMask = _mm256_cmpeq_epi32_mask(vCol1, _mm256_setzero_si256());
+            __mmask8 resultMask = _mm_testn_epi16_mask(vCol1, vCol1);
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (resultMask << 1) & rowsUsage;
-#else // AVX512
+#else // !AVX512
             // check if result is zero
-            vCol1 = _mm256_cmpeq_epi32(vCol1, _mm256_setzero_si256());
+            vCol1 = _mm_cmpeq_epi16(vCol1, _mm_setzero_si128());
+
             // create mask from vector
-            // there are 4 bits per result, so we need to extract every 4th one
-            unsigned int mask = _mm256_movemask_epi8(vCol1);
-#ifndef DISABLE_PEXT
-            mask = _pext_u32(mask, 0x11111111);
-#else
-            // PEXT instruction is very slow on AMD Ryzen/Threadripper, so alternative for them is needed
-            mask = mask4to1bits[mask & 0xFFFF] | (mask4to1bits[mask >> 16] << 4);
-#endif
+            // there are 2 bits per result, so we need to pack int16 to int8 first
+            vCol1 = _mm_packs_epi16(vCol1, _mm_setzero_si128());
+            unsigned int mask = _mm_movemask_epi8(vCol1);
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
-#endif // AVX512
-#elif defined(__SSE2__)
-            // load bitmasks for columns which will be on diagonals
-            // for performance reasons load this as a row from transposed square
-            // also excluse 0th element, row 0 has fixed position in square
-            __m128i vCol1a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][1]);
-            __m128i vCol1b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[currentRowId][5]);
-            __m128i vCol2a = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
-            __m128i vCol2b = _mm_loadu_si128((const __m128i*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
-
-            // AND loaded values with diagnonal masks
-            __m128i vDiagMask1 = _mm_set1_epi32(diagonalValues1);
-            __m128i vDiagMask2 = _mm_set1_epi32(diagonalValues2);
-
-            vCol1a = _mm_and_si128(vCol1a, vDiagMask1);
-            vCol1b = _mm_and_si128(vCol1b, vDiagMask1);
-            vCol2a = _mm_and_si128(vCol2a, vDiagMask2);
-            vCol2b = _mm_and_si128(vCol2b, vDiagMask2);
-
-            // non-zero means that number is duplicated, zero means that it is unique
-            // OR these values together first
-            vCol1a = _mm_or_si128(vCol1a, vCol2a);
-            vCol1b = _mm_or_si128(vCol1b, vCol2b);
-
-            // check if result is zero
-            vCol1a = _mm_cmpeq_epi32(vCol1a, _mm_setzero_si128());
-            vCol1b = _mm_cmpeq_epi32(vCol1b, _mm_setzero_si128());
-            // create mask from vector
-            // there are 4 bits per result, so we need to extract every 4th one
-            int mask1 = _mm_movemask_epi8(vCol1a);
-            int mask2 = _mm_movemask_epi8(vCol1b);
-            int mask = mask4to1bits[mask1] | (mask4to1bits[mask2] << 4);
-
-            // add one bit for 0th row, and AND result with rowsUsage
-            rowCandidates = (mask << 1) & rowsUsage;
+#endif // !AVX512
 #elif defined(__ARM_NEON)
 #ifdef __aarch64__
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            uint32x4_t vCol1a = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
-            uint32x4_t vCol1b = vld1q_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
-            uint32x4_t vCol2a = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
-            uint32x4_t vCol2b = vld1q_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
+            uint16x8_t vCol1 = vld1q_u16((const uint16_t*)&squareA_MaskT[currentRowId][0]);
+            uint16x8_t vCol2 = vld1q_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
 
             // AND loaded values with diagnonal masks
-            uint32x4_t vDiagMask1 = vdupq_n_u32(diagonalValues1);
-            uint32x4_t vDiagMask2 = vdupq_n_u32(diagonalValues2);
+            uint16x8_t vDiagMask1 = vdupq_n_u16(diagonalValues1);
+            uint16x8_t vDiagMask2 = vdupq_n_u16(diagonalValues2);
 
-            vCol1a = vandq_u32(vCol1a, vDiagMask1);
-            vCol1b = vandq_u32(vCol1b, vDiagMask1);
-            vCol2a = vandq_u32(vCol2a, vDiagMask2);
-            vCol2b = vandq_u32(vCol2b, vDiagMask2);
+            vCol1 = vandq_u16(vCol1, vDiagMask1);
+            vCol2 = vandq_u16(vCol2, vDiagMask2);
 
             // non-zero means that number is duplicated, zero means that it is unique
             // OR these values together first
-            vCol1a = vorrq_u32(vCol1a, vCol2a);
-            vCol1b = vorrq_u32(vCol1b, vCol2b);
+            vCol1 = vorrq_u16(vCol1, vCol2);
 
             // check if result is zero
-            vCol1a = vceqq_u32(vCol1a, vdupq_n_u32(0));
-            vCol1b = vceqq_u32(vCol1b, vdupq_n_u32(0));
+            vCol1 = vceqq_u16(vCol1, vdupq_n_u16(0));
 
             // create mask from vector
-            uint32x4_t v = vorrq_u32(vandq_u32(vCol1a, vPowersOf2Lo), vandq_u32(vCol1b, vPowersOf2Hi));
-            uint32_t mask = vaddvq_u64(vpaddlq_u32(v));
+            uint16x8_t v = vandq_u16(vCol1, vPowersOf2);
+            uint32_t mask = vaddvq_u64(vpaddlq_u32(vpaddlq_u16(v)));
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
@@ -623,58 +820,52 @@ void MovePairSearch::MoveRows()
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
             // also excluse 0th element, row 0 has fixed position in square
-            uint32x2_t vCol1a = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][1]);
-            uint32x2_t vCol1b = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][3]);
-            uint32x2_t vCol1c = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][5]);
-            uint32x2_t vCol1d = vld1_u32((const uint32_t*)&squareA_MaskT[currentRowId][7]);
+            uint16x4_t vCol1a = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][0]);
+            uint16x4_t vCol1b = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][4]);
             
-            uint32x2_t vCol2a = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][1]);
-            uint32x2_t vCol2b = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][3]);
-            uint32x2_t vCol2c = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][5]);
-            uint32x2_t vCol2d = vld1_u32((const uint32_t*)&squareA_MaskT[Rank - 1 - currentRowId][7]);
+            uint16x4_t vCol2a = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
+            uint16x4_t vCol2b = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][4]);
 
             // AND loaded values with diagnonal masks
-            uint32x2_t vDiagMask1 = vdup_n_u32(diagonalValues1);
-            uint32x2_t vDiagMask2 = vdup_n_u32(diagonalValues2);
+            uint16x4_t vDiagMask1 = vdup_n_u16(diagonalValues1);
+            uint16x4_t vDiagMask2 = vdup_n_u16(diagonalValues2);
 
-            vCol1a = vand_u32(vCol1a, vDiagMask1);
-            vCol1b = vand_u32(vCol1b, vDiagMask1);
-            vCol1c = vand_u32(vCol1c, vDiagMask1);
-            vCol1d = vand_u32(vCol1d, vDiagMask1);
+            vCol1a = vand_u16(vCol1a, vDiagMask1);
+            vCol1b = vand_u16(vCol1b, vDiagMask1);
             
-            vCol2a = vand_u32(vCol2a, vDiagMask2);
-            vCol2b = vand_u32(vCol2b, vDiagMask2);
-            vCol2c = vand_u32(vCol2c, vDiagMask2);
-            vCol2d = vand_u32(vCol2d, vDiagMask2);
+            vCol2a = vand_u16(vCol2a, vDiagMask2);
+            vCol2b = vand_u16(vCol2b, vDiagMask2);
 
             // non-zero means that number is duplicated, zero means that it is unique
             // OR these values together first
-            vCol1a = vorr_u32(vCol1a, vCol2a);
-            vCol1b = vorr_u32(vCol1b, vCol2b);
-            vCol1c = vorr_u32(vCol1c, vCol2c);
-            vCol1d = vorr_u32(vCol1d, vCol2d);
+            vCol1a = vorr_u16(vCol1a, vCol2a);
+            vCol1b = vorr_u16(vCol1b, vCol2b);
 
             // check if result is zero
-            vCol1a = vceq_u32(vCol1a, vdup_n_u32(0));
-            vCol1b = vceq_u32(vCol1b, vdup_n_u32(0));
-            vCol1c = vceq_u32(vCol1c, vdup_n_u32(0));
-            vCol1d = vceq_u32(vCol1d, vdup_n_u32(0));
+            vCol1a = vceq_u16(vCol1a, vdup_n_u16(0));
+            vCol1b = vceq_u16(vCol1b, vdup_n_u16(0));
 
             // create mask from vector
-            uint32x2_t v = vorr_u32(
-              vorr_u32(vand_u32(vCol1a, vPowersOf2_1), vand_u32(vCol1b, vPowersOf2_2)),
-              vorr_u32(vand_u32(vCol1c, vPowersOf2_3), vand_u32(vCol1d, vPowersOf2_4)));
-            //uint32_t mask = vaddv_u32(v);
-            uint32_t mask = v[0] + v[1];
+            vCol1a = vand_u16(vCol1a, vPowersOf2Lo);
+            vCol1b = vand_u16(vCol1b, vPowersOf2Hi);
+            
+            vCol1a = vorr_u16(vCol1a, vCol1b);
+            
+            uint64x1_t v = vpaddl_u32(vpaddl_u16(vCol1a));
+            uint32_t mask = vget_lane_u32(vreinterpret_u32_u64(v), 0);
 
             // add one bit for 0th row, and AND result with rowsUsage
             rowCandidates = (mask << 1) & rowsUsage;
 #endif
 #endif // AVX2/SSE2
+            if (!rowCandidates)
+                break;
           }
         }
     }
-    else
+
+    // 2nd loop (used to be "else" part) - handle case when there are no row candidates
+    while(1)
     {
       // Process not-founding of the new row: step backward, clear the flags of usage,
       // the history of usage, the list of current rows and clear the square itself
@@ -684,7 +875,7 @@ void MovePairSearch::MoveRows()
         DBG_DOWN();
         // Check if we are done
         if (0 == currentRowId)
-          break;
+          return;
         // Get saved values for previous row
         diagonalValues1 = diagonalValuesHistory[currentRowId-1][0];
         diagonalValues2 = diagonalValuesHistory[currentRowId-1][1];
@@ -692,6 +883,8 @@ void MovePairSearch::MoveRows()
         SetBit(rowsUsage, currentSquareRows[currentRowId]);
         // Get saved candidates
         rowCandidates = rowsHistory[currentRowId];
+        if (rowCandidates)
+            break;
     }
   }
 }
@@ -701,7 +894,6 @@ void MovePairSearch::MoveRows()
 void MovePairSearch::ProcessOrthoSquare()
 {
   int isDifferent = 0;      // The number of differences in the rows with the initial square (to avoid generating its copy)
-  ofstream resultFile;      // The stream for output into the results file
 
   Square a(squareA);        // Square A as an object
   Square b(squareB);        // Square B as an object
@@ -742,6 +934,15 @@ void MovePairSearch::ProcessOrthoSquare()
         orthoSquares[pairsCount] = b;
       }
 
+      // The stream for output into the results file
+      // It must be here, creation and destruction of iostream is costly!
+      ofstream resultFile;
+      resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
+      if (!resultFile.is_open())
+      {
+        std::cerr << "Error opening file!";
+      }
+
       // Output the header
       if (pairsCount == 1)
       {
@@ -756,7 +957,6 @@ void MovePairSearch::ProcessOrthoSquare()
           cout << "# ------------------------" << endl;
         }
         // Write the information into file
-        resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         {
           resultFile << "{" << endl;
@@ -765,11 +965,6 @@ void MovePairSearch::ProcessOrthoSquare()
           resultFile << "# ------------------------" << endl;
           resultFile << a;
           resultFile << "# ------------------------" << endl;
-          resultFile.close();
-        }
-        else
-        {
-          std::cerr << "Error opening file!";
         }
       }
 
@@ -781,17 +976,11 @@ void MovePairSearch::ProcessOrthoSquare()
         }
 
         // Output the information into the file
-        resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         {
           resultFile << b << endl;
           resultFile.close();
         }
-        else
-        {
-          std::cerr << "Error opening file!";
-        }
-
   }
 }
 

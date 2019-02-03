@@ -24,6 +24,11 @@
 
 #define ffs __builtin_ffs
 
+// Square::Empty is equal -1, all other values and non-negative.
+// CPU sets sign bit in status register automatically when executing instructions,
+// so sign check instead of value check can give faster code.
+#define IsCellEmpty(val) ((val) < 0)
+
 
 using namespace std;
 
@@ -265,7 +270,54 @@ void Generator::Read(std::istream& is)
 
     // Read the number of generated squares
     is >> squaresCount;
-
+    
+    // Data loaded. Perform necessary post-loading tasks.
+    if (cellId == cellsInPath - 1)
+    {
+        // Start from WU
+        // Convert old checkpoint format to new one if used
+        int row = path[cellsInPath - 2][0], col = path[cellsInPath - 2][1];
+        if (0 != cellsHistory[row][col])
+        {
+            int tmpColumns[Rank];
+            int tmpRows[Rank];
+            memcpy(tmpColumns, columns, sizeof(columns));
+            memcpy(tmpRows, rows, sizeof(rows));
+            
+            // Convert cellsHistory into candidates
+            for (int i = cellsInPath - 1; i >= 0; --i)
+            {
+                row = path[i][0];
+                col = path[i][1];
+                int bit = 1 << newSquare.Matrix[row][col];
+                tmpColumns[col] |= bit;
+                tmpRows[row] |= bit;
+                cellsHistory[row][col] &= tmpColumns[col] & tmpRows[row];
+                
+                // Update rows/cols data for last cell in path, it is no longer set
+                if (i == cellsInPath - 1)
+                {
+                    columns[col] = tmpColumns[col];
+                    rows[row] = tmpRows[row];
+                }
+            }
+        }
+    }
+    else
+    {
+        // Start from checkpoint
+        // Check if there are no cells on diagonals in path
+        for (int i = 0; i < cellsInPath; i++)
+        {
+            int row = path[i][0], col = path[i][1];
+            if ((row == col) || (row == Rank - 1 - col))
+            {
+                std::cerr << "Error: Cell on diagonal in path! R=" << row << " C=" << col << std::endl;
+                return;
+            }
+        }
+    }
+    
     // Set initialization flag
     isInitialized = Yes;
   }
@@ -447,138 +499,127 @@ void Generator::CreateCheckpoint()
 void Generator::Start()
 {
   // Check value of keyValue and pass result as a type to StartImpl
-  if (keyValue == Square::Empty)
+  if (IsCellEmpty(keyValue))
     StartImpl<true_type>();
   else
     StartImpl<false_type>();
 }
 
 // Actual implementation of the squares generation
+// Note: values on diagonal are preset in WU, so corresponding parts of code are commented out.
+// It turned out that it was quite costly to have instructions which were doing nothing.
 template<typename IsKeyValueEmpty>
 inline void Generator::StartImpl()
 {
   int cellValue;    // New value for the cell
-  int oldCellValue; // Old value from the cell
+  int cellValueCandidates; // Candidates for value for the cell
 
   // Create constant copies of used fields to speedup calculations
-  const int cellsInPath = this->cellsInPath;
+  const int_fast32_t cellsInPath = this->cellsInPath;
   const int keyValue = this->keyValue;
-  const int keyRowId = this->keyRowId;
-  const int keyColumnId = this->keyColumnId;
+  const int_fast32_t keyRowId = this->keyRowId;
+  const int_fast32_t keyColumnId = this->keyColumnId;
+
+  // Use registers for local variables instead of memory
+  int_fast32_t rowId, columnId;
+  int_fast32_t cellId = this->cellId;
+
+  // Checkpoint may be written after new ODLS is created only.
+  // Class members moved to registers above are constant in checkpoint
+  // file, so they can be set to proper values here.
+  this->rowId = path[cellsInPath - 1][0];
+  this->columnId = path[cellsInPath - 1][1];
+  this->cellId = cellsInPath - 1;
+
+  // Selection of the value for the next cell
+  // Read coordinates of the cell
+  rowId = path[cellId][0];
+  columnId = path[cellId][1];
+
+  // Generate new value for the cell (rowId, columnId)
+  // Select the value for the cell
+  // Check the i value for possibility to be written into the cell (rowId, columnId)
+  cellValueCandidates = columns[columnId] & rows[rowId];
 
   if (isInitialized == Yes)
   {
+    // Check if there are no candidates at the beginning, or if calculations are resumed from checkpoint
+    if ((cellId == cellsInPath - 1) || (0 == cellValueCandidates))
+      goto StepDown;
+    
     // Selection of the cells values
     while(1)
     {
-      // Selection of the value for the next cell
-        // Read coordinates of the cell
-        rowId = path[cellId][0];
-        columnId = path[cellId][1];
-
-        // Generate new value for the cell (rowId, columnId)
-          // Select the value for the cell
-          // Check the i value for possibility to be written into the cell (rowId, columnId)
-          cellValue = columns[columnId] & rows[rowId] & cellsHistory[rowId][columnId];
-
-          // Test the value: has it been used in diagonals
-          // Test the main diagonal
-          if(columnId == rowId)
-          {
-            cellValue &= primary;
-          }
-
-          // Test the secondary diagonal
-          if (rowId == Rank - 1 - columnId)
-          {
-            cellValue &= secondary;
-          }
-
         // Process the search result
-        if (cellValue)
+        // 1st loop (used to be "if (cellValueCandidates)" part) - handle case when at least one cell value candidate is present
+        while (1)
         {
-          // Get index of first bit set
-          cellValue = ffs(cellValue) - 1;
-          // Process the new found value
-            // Read the current value
-            oldCellValue = newSquare.Matrix[rowId][columnId];
-            // Write the new value
-              // Write the value into the square
-              newSquare.Matrix[rowId][columnId] = cellValue;
-              // Mark the value in columns
-              SetUsed(columns[columnId], cellValue);
-              // Mark the value in rows
-              SetUsed(rows[rowId], cellValue);
-              // Mark the value in diagonals
-              if (rowId == columnId)
-              {
-                SetUsed(primary, cellValue);
-              }
-              if (rowId == Rank - 1 - columnId)
-              {
-                SetUsed(secondary, cellValue);
-              }
-              // Mark the value in the history of cell values
-              SetUsed(cellsHistory[rowId][columnId], cellValue);
+          // Extract lowest bit set
+          int bit = (-cellValueCandidates) & cellValueCandidates;
+          
+          // Write the value into the square
+          newSquare.Matrix[rowId][columnId] = __builtin_ctz(bit);
 
-            // Restore the previous value without clearing the history (because we are working with this cell)
-            if (oldCellValue != Square::Empty)
+          // Process the finish of the square generation
+          if (cellId == cellsInPath - 1)
+          {
+            // Process the found square
+            ProcessSquare();
+            
+            // Check the finish condition of search
+            if (!IsKeyValueEmpty::value)
             {
-              // Restore the value into columns
-              SetFree(columns[columnId], oldCellValue);
-              // Restore the value into rows
-              SetFree(rows[rowId], oldCellValue);
-              // Restore the value into diagonals
-              if (rowId == columnId)
+              // Set the flag if the terminal value is other
+              if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
               {
-                SetFree(primary, oldCellValue);
-              }
-              if (rowId == Rank - 1 - columnId)
-              {
-                SetFree(secondary, oldCellValue);
+                break;
               }
             }
+            
+            break;
+          }
+          else
+          {
+            // Mark the value in columns
+            columns[columnId] &= ~bit;
+            // Mark the value in rows
+            rows[rowId] &= ~bit;
 
-            // Process the finish of the square generation
-            if (cellId == cellsInPath - 1)
+            // Mark the value in the history of cell values
+            cellsHistory[rowId][columnId] = cellValueCandidates & ~bit;
+            
+            // Step forward
+            cellId++;
+            
+            // Check the finish condition of search
+            if (!IsKeyValueEmpty::value)
             {
-              // Process the found square
-              ProcessSquare();
+              // Set the flag if the terminal value is other
+              if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
+              {
+                break;
+              }
             }
-            else
-            {
-              // Step forward
-              cellId++;
-            }
+            
+            // Selection of the value for the next cell
+            // Read coordinates of the cell
+            rowId = path[cellId][0];
+            columnId = path[cellId][1];
+
+            // Generate new value for the cell (rowId, columnId)
+            // Select the value for the cell
+            // Check the i value for possibility to be written into the cell (rowId, columnId)
+            cellValueCandidates = columns[columnId] & rows[rowId];
+            
+            if (!cellValueCandidates)
+              break;
+          }
         }
-        else
+        
+        // 2nd loop (used to be "else" part) - handle case when there are no cell value candidates
+StepDown:
+        while (1)
         {
-          // Process the fact of not-founding a new value in the cell (rowId; columnId)
-            // Restore the previous value from the square into arrays 
-              // Read the current value
-              cellValue = newSquare.Matrix[rowId][columnId];
-              // Restore the value into auxilary arrays
-              if (cellValue != Square::Empty)
-              {
-                // Restore the value into columns
-                SetFree(columns[columnId], cellValue);
-                // Restore the value into rows
-                SetFree(rows[rowId], cellValue);
-                // Restore the value into diagonals
-                if (rowId == columnId)
-                {
-                  SetFree(primary, cellValue);
-                }
-                if (rowId == Rank - 1 - columnId)
-                {
-                  SetFree(secondary, cellValue);
-                }
-                // Reset the cell of the square
-                newSquare.Matrix[rowId][columnId] = Square::Empty;
-                // Clear the history of the cell (rowId, columnId)
-                cellsHistory[rowId][columnId] = AllBitsMask(Rank);
-              }
-
             // Step backward
             cellId--;
 
@@ -586,21 +627,32 @@ inline void Generator::StartImpl()
             if (IsKeyValueEmpty::value)
             {
               // Set the flag if the terminal value is "-1" which means we must leave the cell
-              if (cellId < 0 && newSquare.Matrix[keyRowId][keyColumnId] == Square::Empty)
+              if (cellId < 0 /*&& IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId])*/)
               {
-                break;
+                return;
               }
             }
-        }
-
-        // Check the finish condition of search
-        if (!IsKeyValueEmpty::value)
-        {
-          // Set the flag if the terminal value is other
-          if (newSquare.Matrix[keyRowId][keyColumnId] == keyValue)
-          {
-            break;
-          }
+            
+            // Selection of the value for the next cell
+            // Read coordinates of the cell
+            rowId = path[cellId][0];
+            columnId = path[cellId][1];
+            
+            // Process the fact of not-founding a new value in the cell (rowId; columnId)
+            // Restore the previous value from the square into arrays 
+              // Read the current value
+              cellValue = newSquare.Matrix[rowId][columnId];
+              
+              // Restore the value into auxilary arrays
+                // Restore the value into columns
+                SetFree(columns[columnId], cellValue);
+                // Restore the value into rows
+                SetFree(rows[rowId], cellValue);
+                
+                cellValueCandidates = cellsHistory[rowId][columnId];
+                
+                if (cellValueCandidates)
+                  break;
         }
     }
   }

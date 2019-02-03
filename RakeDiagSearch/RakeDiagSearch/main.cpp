@@ -1,7 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <iomanip>
 #include <sys/stat.h>
+#include <time.h>
 #include "boinc_api.h"
 #include "MovePairSearch.h"
 #if defined(__i386__) || defined (__x86_64__)
@@ -13,6 +15,7 @@
 #include <asm/hwcap.h>
 #include <stdio.h>
 #endif
+#include "Helpers.h"
 
 using namespace std;
 
@@ -38,7 +41,7 @@ int Compute(string wu_filename, string result_filename)
   string initCheckpointFileName;
   string initTmpCheckpointFileName;
 
-  MovePairSearch search;
+  MovePairSearch search ALIGNED;
 
     // Checking the workunit file, the checkpoint file, the result file for existence
     localWorkunit = wu_filename; 
@@ -102,6 +105,8 @@ int main(int argumentsCount, char* argumentsValues[])
 
   int retval;
 
+  clock_t runtime = clock();
+
   boinc_init(); // Initialize BOINC API for single-threaded application 
   // Set minimal number of seconds between writing checkpoints
   boinc_set_min_checkpoint_period(60); 
@@ -124,6 +129,12 @@ int main(int argumentsCount, char* argumentsValues[])
   boinc_fraction_done(0.0); // Tell the BOINC client the fraction of workunit completion
     retval = Compute(resolved_in_name, resolved_out_name); // Launch computing
   boinc_fraction_done(1.0); // Tell the BOINC client the fraction of workunit completion
+
+  runtime = clock() - runtime;
+  int minutes = runtime / (CLOCKS_PER_SEC * 60);
+  runtime = runtime % (CLOCKS_PER_SEC * 60);
+  cout << endl << "CPU time: " << minutes << "min " <<
+    fixed << setprecision(3) << ((double)runtime / CLOCKS_PER_SEC) << "sec" << endl;
 
   // Tell the BOINC client the status of workunit completion (does not return)
   boinc_finish(retval); 

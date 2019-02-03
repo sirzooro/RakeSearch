@@ -5,8 +5,10 @@
 
 # include <iostream>
 # include <string>
+# include <stdint.h>
 
 # include "Generator.h"
+# include "Helpers.h"
 
 using namespace std;
 
@@ -20,13 +22,12 @@ public:
   void ClearBeforeNextSearch();  // Reset the variables before the next search
   void InitializeMoveSearch(string start, string result, string checkpoint, string temp);  // Search initialization
   void StartMoveSearch();        // Start the search for orthogonal squares by the method of rows permutation
-  void OnSquareGenerated(Square newSquare);  // Event processor of DLS generation, will start the search for its pair
+  void OnSquareGenerated(const Square& newSquare);  // Event processor of DLS generation, will start the search for its pair
 
 private:                              
   static const int CheckpointInterval = 1000000;  // Interval for checkpoint creation
   static const int OrhoSquaresCacheSize = 32;     // Cache size to store the squares orthogonal to the processed one
 
-  void InitMask4to1bits();
   void MoveRows();                  // Permute the rows of the given DLS, trying to find ODLS for it
   void ProcessOrthoSquare();        // Process the found orthogonal square
   void CheckMutualOrthogonality();  // Check the mutual orthogonality of a set of squares found in the current search
@@ -35,15 +36,19 @@ private:
   void Write(std::ostream& os);     // Write the search state into stream
   void ShowSearchTotals();          // Display the total results of the search
   
+#if defined(__ARM_NEON) && !defined(__aarch64__)
+  void transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol);
+#endif
+  
   static void CopyRow(int* __restrict dst, int* __restrict src);
   static void SetRow(int* dst, int val);
 
   Generator squareAGenerator;       // DLS generator
-  int squareA[Rank][Rank];          // Initial DLS, whose rows will be permuted
-  int squareB[Rank][Rank];          // Generated DLS, the rows inside which will be permuted 
-  int squareA_Mask[Rank][Rank];     // Bitmasks for values in squareA
+  int squareA[Rank][Rank] ALIGNED;  // Initial DLS, whose rows will be permuted
+  int squareB[Rank][Rank] ALIGNED;  // Generated DLS, the rows inside which will be permuted
+  int squareA_Mask[Rank][Rank] ALIGNED; // Bitmasks for values in squareA
 #if defined (__SSE2__) || defined(__ARM_NEON)
-  int squareA_MaskT[Rank][Rank];    // Transposed copy of squareA_Mask
+  uint16_t squareA_MaskT[Rank][Rank-1] ALIGNED;    // Transposed copy of squareA_Mask
 #endif
   int rowsHistory[Rank];      // Array of the history of rows usage; rowsHistory[number of the row][value] = 0 | 1, where 0 means the row with the number "value" has been used for the row "number of the row" of the generated square; 1 - the row can be used.
   int currentSquareRows[Rank];      // Array listing the current rows used in the square. The number of the used row is at the i-th position
@@ -66,10 +71,6 @@ private:
   string moveSearchGlobalHeader;    // Header preceding the data about search state
   string moveSearchComponentHeader; // Header preceding the data about the state of the component of rows permutation
   static const bool isDebug = false; // Flag of displaying debug information
-
-#if defined(__SSE2__) && (!defined(__AVX2__) || defined(DISABLE_PEXT))
-  unsigned char mask4to1bits[0x10000]; // Lookup table to map 4 bit packs returned by movemask to 1 bit
-#endif
 };
 
 # endif

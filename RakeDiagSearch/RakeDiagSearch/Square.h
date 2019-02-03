@@ -4,6 +4,7 @@
 # define Square_h
 
 # include <iostream>
+# include "Helpers.h"
 
 using namespace std;
 
@@ -15,29 +16,29 @@ public:
 	static const char HeadToken = '{';		// Start token for the data about the square in stream
 	static const char TailToken = '}';		// End token for the data about the square in stream
 
-	static int OrthoDegree(Square a, Square b);	// Orthogonality degree for squares a and b
+	static int OrthoDegree(const Square& a, const Square& b);	// Orthogonality degree for squares a and b
 
 	Square();					// Default constructor
 	Square(int source[Rank][Rank]);			// Matrix constructor
-	Square(Square& source);				// Copy constructor
+	Square(const Square& source);				// Copy constructor
 
-	int operator == (Square& value);
+	int operator == (const Square& value) const;
 		// Overloading the comparison operator: the matrix components are being compared
-	Square& operator = (Square& value);
+	Square& operator = (const Square& value);
 		// Overloading the assignment operator
-	friend std::ostream& operator << (std::ostream& os, Square& value);
+	friend std::ostream& operator << (std::ostream& os, const Square& value);
 		// Overloading the square data output operator
 	friend std::istream& operator >> (std::istream& is, Square& value);
 		// Overloading the square data input operator
 
-	int IsDiagonal();	// Checking the square for being diagonal Latin square 
-	int IsLatin();		// Checking the square for being Latin square
-	void Initialize(int source[Rank][Rank]);	// Initialization of the square components
+	int IsDiagonal() const;	// Checking the square for being diagonal Latin square 
+	int IsLatin() const;		// Checking the square for being Latin square
+	void Initialize(const int source[Rank][Rank]);	// Initialization of the square components
 	void Reset();					// Resetting all values of variables
 	void Read(std::istream& is);			// Reading the square from stream
-	void Write(std::ostream& os);			// Writing the square into stream
+	void Write(std::ostream& os) const;		// Writing the square into stream
 
-	int Matrix[Rank][Rank];				// Matrix of the square
+	int Matrix[Rank][Rank] ALIGNED;			// Matrix of the square
 
 protected:
 private:
