@@ -14,6 +14,7 @@ To compile app, enter RakeSearch/RakeDiagSearch/RakeDiagSearch directory first. 
 Makefile supports number of extra parameters. Here are ones used for x86 and x86_64:
 
 - `SSE2=1` - enable SSE2 instructions (x86 and x86_64)
+- `SSSEe=1` - enable SSSE3 instructions (x86 and x86_64)
 - `AVX=1` - enable AVX instructions (x86_64 only)
 - `AVX2=1` - enable AVX2 and BMI1/2 instructions (x86_64 only)
 - `AVX512=1` - enable AVX512 instructions (x86_64 only)
