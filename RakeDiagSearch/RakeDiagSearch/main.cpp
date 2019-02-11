@@ -167,6 +167,14 @@ void CheckCpuid()
     exit(1);
   }
 
+#ifdef __SSSE3__
+  if (0 == (c & bit_SSSE3))
+  {
+    fprintf(stderr, "SSSE3 instructions are not supported by your CPU!\n");
+    exit(1);
+  }
+#endif
+
 #ifdef __AVX__
   if (0 == (c & bit_AVX))
   {

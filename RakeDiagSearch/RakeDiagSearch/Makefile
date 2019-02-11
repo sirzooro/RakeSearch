@@ -42,10 +42,14 @@ else ifeq ($(AVX),1)
 # AVX
 $(info ===== Compiling AVX app version =====)
 CXXFLAGS += -march=core2 -mtune=sandybridge -mpopcnt -mavx
+else ifeq ($(SSSE3),1)
+# SSSE3
+$(info ===== Compiling SSSE3 app version =====)
+CXXFLAGS += -mtune=core2 -mssse3
 else ifeq ($(SSE2),1)
-# SSE2, 64-bit
+# SSE2
 $(info ===== Compiling SSE2 app version =====)
-CXXFLAGS += -march=core2 -mtune=generic -msse2
+CXXFLAGS += -mtune=core2 -msse2
 else ifeq ($(NEON),1)
 # NEON (ARM only; AARCH64 has NEON by default)
 $(info ===== Compiling ARM NEON app version =====)
