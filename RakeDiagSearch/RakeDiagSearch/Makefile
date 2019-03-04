@@ -19,10 +19,22 @@ CXX = i686-w64-mingw32-g++
 else ifeq ($(MinGW64),1)
 $(info ===== Compiling MinGW 64-bit app version =====)
 CXX = x86_64-w64-mingw32-g++
+else ifeq ($(AARCH64),1)
+$(info ===== Compiling AARCH64 app version =====)
+CXX = aarch64-linux-gnu-g++
+else ifeq ($(ARM),1)
+ifeq ($(NEON),1)
+$(info ===== Compiling ARM HF app version =====)
+CXX = arm-linux-gnueabihf-g++
+else
+$(info ===== Compiling ARM SF app version =====)
+CXX = arm-linux-gnueabi-g++
+endif
 else ifeq ($(M32),1)
 $(info ===== Compiling 32-bit app version =====)
 CXX = g++ -m32
 else
+$(info ===== Compiling default app version =====)
 CXX = g++
 endif
 

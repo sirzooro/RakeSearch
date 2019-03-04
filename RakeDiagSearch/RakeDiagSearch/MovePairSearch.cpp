@@ -696,9 +696,6 @@ void MovePairSearch::MoveRows()
       gettingRowId = __builtin_ctz(rowCandidates);
       // Process the new found row
 
-      // Mark the row in the history of the used rows
-      ClearBit(rowCandidates, gettingRowId);
-
       // Check diagonality of the generated part of the square
       // Check the main diagonal and secondary diagonal
       // Get bits for current row
@@ -707,11 +704,24 @@ void MovePairSearch::MoveRows()
 
 #if !defined(__SSE2__) && !defined(__ARM_NEON)
       // Duplicate check
-      int duplicationDetected = ((0 != (diagonalValues1 & bit1)) || (0 != (diagonalValues2 & bit2)));
+      int duplicationDetected = (diagonalValues1 & bit1) | (diagonalValues2 & bit2);
 
         // Process the results of checking the square for diagonality
-        if (!duplicationDetected)
+        if (duplicationDetected)
+        {
+          // Mark the row in the history of the used rows
+          ClearBit(rowCandidates, gettingRowId);
+          
+          if (0 == rowCandidates)
+            break;
+          else
+            continue;
+        }
 #endif
+
+        // Mark the row in the history of the used rows
+        ClearBit(rowCandidates, gettingRowId);
+
         {
           // Write the row into the array of the current rows
           currentSquareRows[currentRowId] = gettingRowId;
