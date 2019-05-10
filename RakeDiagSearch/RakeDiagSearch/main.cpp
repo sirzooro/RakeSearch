@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include "boinc_api.h"
+#include "Helpers.h"
 #include "MovePairSearch.h"
 #if defined(__i386__) || defined (__x86_64__)
 #include <cpuid.h>
@@ -15,7 +16,6 @@
 #include <asm/hwcap.h>
 #include <stdio.h>
 #endif
-#include "Helpers.h"
 
 using namespace std;
 
@@ -149,7 +149,7 @@ int main(int argumentsCount, char* argumentsValues[])
 // Do not check x86 CPU features if SSE2 is not required. Very old CPUs may not support CPUID.
 // Code below uses C stdio because C++ iostreams are not initialized yet and app would crash.
 // This function is called before main() starts.
-#if (defined(__i386__) || defined (__x86_64__)) && defined(__SSE2__)
+#if (defined(__i386__) || defined (__x86_64__)) && defined(__SSE2__) && defined (HAS_SIMD)
 __attribute__((constructor(101), target("no-sse")))
 void CheckCpuid()
 {
