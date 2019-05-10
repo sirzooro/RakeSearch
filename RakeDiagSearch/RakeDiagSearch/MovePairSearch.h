@@ -36,7 +36,7 @@ private:
   void Write(std::ostream& os);     // Write the search state into stream
   void ShowSearchTotals();          // Display the total results of the search
   
-#if defined(__ARM_NEON) && !defined(__aarch64__)
+#if defined(__ARM_NEON) && !defined(__aarch64__) && defined(HAS_SIMD)
   void transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol);
 #endif
   
@@ -47,7 +47,7 @@ private:
   int squareA[Rank][Rank] ALIGNED;  // Initial DLS, whose rows will be permuted
   int squareB[Rank][Rank] ALIGNED;  // Generated DLS, the rows inside which will be permuted
   int squareA_Mask[Rank][Rank] ALIGNED; // Bitmasks for values in squareA
-#if defined (__SSE2__) || defined(__ARM_NEON)
+#ifdef HAS_SIMD
   uint16_t squareA_MaskT[Rank][Rank-1] ALIGNED;    // Transposed copy of squareA_Mask
 #endif
   int rowsHistory[Rank];      // Array of the history of rows usage; rowsHistory[number of the row][value] = 0 | 1, where 0 means the row with the number "value" has been used for the row "number of the row" of the generated square; 1 - the row can be used.

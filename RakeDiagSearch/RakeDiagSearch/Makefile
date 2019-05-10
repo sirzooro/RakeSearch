@@ -66,6 +66,9 @@ else ifeq ($(NEON),1)
 # NEON (ARM only; AARCH64 has NEON by default)
 $(info ===== Compiling ARM NEON app version =====)
 CXXFLAGS += -mfloat-abi=hard -mfpu=neon
+else ifeq ($(NOSIMD),1)
+$(info ===== Compiling No-SIMD app version =====)
+CXXFLAGS += -DNO_SIMD=1
 else
 $(info ===== Compiling default app version =====)
 endif

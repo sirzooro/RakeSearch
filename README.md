@@ -21,9 +21,15 @@ Makefile supports number of extra parameters. Here are ones used for x86 and x86
 
 Note: SSE2 is always enabled on x86_64, support for it is part of AMD64 specification.
 
+When compiling for ARM, you can enable NEON instruction by using `NEON=1` parameter. AARCH64 supports it by default, so no need to explicitly enable it.
+
 You can also specify target platform:
 - `M32=1` - compile 32-bit app version (used for Linux app)
 - `MinGW64=1` - compile 64-bit app for Windows using MinGW crosscompiler
 - `MinGW32=1` - compile 32-bit app for Windows using MinGW crosscompiler
+- `AARCH64=1` - compile 64-bit app for Linux using AARCH64 crosscompiler
+- `ARM=1` - compile 32-bit app for Linux using ARM crosscompiler
 
-You can also compile app for ARM (32-bit) and AARCH64 (64-bit). ARM may support NEON instructions, so there is compilation option `NEON=1` to enable it. AARCH64 always support NEON, so there is no special option for it.
+When compiling for ARM or AARCH64 using native compiler, no extra options are needed. You can only add `NEON=1` to enable NEON for ARM.
+
+It is also possible to disable SIMD instructions with `NOSIMD=1` parameter. Thismay be handy if you want to disable SIMD instructions on platform which always have them enabled - namely SSE2 on x86_s64, NEON on ARM64.

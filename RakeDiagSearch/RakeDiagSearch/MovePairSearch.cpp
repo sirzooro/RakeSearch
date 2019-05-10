@@ -1,14 +1,17 @@
 // Search for pairs of diagonal Latin squares by the method of rows permutation
 
+#include "Helpers.h"
 #include "MovePairSearch.h"
 #include "boinc_api.h"
 
+#ifdef HAS_SIMD
 #ifdef __SSE2__
 #include "immintrin.h"
 #endif
 #ifdef __ARM_NEON
 #include "arm_neon.h"
 #endif
+#endif // HAS_SIMD
 
 #ifndef _MSC_VER
 #define ffs __builtin_ffs
@@ -32,6 +35,7 @@ inline int ffs(int i)
 inline void MovePairSearch::CopyRow(int* __restrict dst, int* __restrict src)
 {
   int n = 0;
+#ifdef HAS_SIMD
 #ifdef __AVX__
   for (; n < Rank - 7; n += 8)
   {
@@ -46,6 +50,7 @@ inline void MovePairSearch::CopyRow(int* __restrict dst, int* __restrict src)
     _mm_storeu_si128((__m128i*)&dst[n], v);
   }
 #endif
+#endif // HAS_SIMD
   for (; n < Rank; n++)
   {
     dst[n] = src[n];
@@ -55,6 +60,7 @@ inline void MovePairSearch::CopyRow(int* __restrict dst, int* __restrict src)
 inline void MovePairSearch::SetRow(int* dst, int val)
 {
   int n = 0;
+#ifdef HAS_SIMD
 #ifdef __AVX__
   __m256i v_avx = _mm256_set1_epi32(val);
   for (; n < Rank - 7; n += 8)
@@ -73,6 +79,7 @@ inline void MovePairSearch::SetRow(int* dst, int val)
     _mm_storeu_si128((__m128i*)&dst[n], v_sse);
   }
 #endif
+#endif // HAS_SIMD
   for (; n < Rank; n++)
   {
     dst[n] = val;
@@ -298,7 +305,7 @@ void MovePairSearch::StartMoveSearch()
 }
 
 
-#if defined(__ARM_NEON) && !defined(__aarch64__)
+#if defined(__ARM_NEON) && !defined(__aarch64__) && defined(HAS_SIMD)
 __attribute__((always_inline))
 inline void MovePairSearch::transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol)
 {
@@ -339,7 +346,7 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
   // Write the found square
 
   // Copy square and generate masks first
-#ifdef __AVX2__
+#if defined(__AVX2__) && defined(HAS_SIMD)
   // AVX2 has "shift by vector" instruction, use it here
   // Note: AVX512 instructions which use ZMM registers cause too big
   // CPU frequency throttling. It does not make sense to use them in this
@@ -362,7 +369,7 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
     *((&squareA[0][0] + n)) = x;
     *((&squareA_Mask[0][0] + n)) = 1 << x;
   }
-#elif defined(__SSSE3__)
+#elif defined(__SSSE3__) && defined(HAS_SIMD)
   // SSSE3 added shuffle instruction, which can be used to build small lookup table.
   // Maximum val (256) needs 9 bytes. Fortunately all values can be decreased by one,
   // so all of them will fit in 8 bits here.
@@ -418,7 +425,7 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
 #endif
 
   // Create transposed copy of squareA_Mask if needed
-#ifdef __SSE2__
+#if defined(__SSE2__) && defined(HAS_SIMD)
   __m128i v1, v2;
   v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][0]));
   v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][4]));
@@ -488,7 +495,7 @@ void MovePairSearch::OnSquareGenerated(const Square& newSquare)
       squareA_MaskT[j][i-1] = squareA_Mask[i][j];
     }
   }
-#elif defined(__ARM_NEON)
+#elif defined(__ARM_NEON) && defined(HAS_SIMD)
 #ifdef __aarch64__
   uint16x8_t v1, v2;
   v1 = vld1q_u16((uint16_t*)(&squareA_Mask[1][0]));
@@ -653,7 +660,7 @@ void MovePairSearch::MoveRows()
   ClearBit(rowsHistory[0], 0);
   currentSquareRows[0] = 0;
 
-#if !defined (__SSE2__) && !defined(__ARM_NEON)
+#ifndef HAS_SIMD
   // For non-vectorized builds start from 1st row, and mark all rows except 0th as candidates
   currentRowId = 1;
   rowCandidates = AllBitsMask(Rank) & ~1u;
@@ -672,7 +679,7 @@ void MovePairSearch::MoveRows()
   diagonalValues1 = diagonalValuesHistory[0][0];
   diagonalValues2 = diagonalValuesHistory[0][1];
 
-#ifdef __ARM_NEON
+#if defined(__ARM_NEON) && defined(HAS_SIMD)
   // Set the powers of 2
   const uint16_t powersOf2[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 #ifdef __aarch64__
@@ -702,7 +709,7 @@ void MovePairSearch::MoveRows()
       int bit1 = squareA_Mask[gettingRowId][currentRowId];
       int bit2 = squareA_Mask[gettingRowId][Rank - 1 - currentRowId];
 
-#if !defined(__SSE2__) && !defined(__ARM_NEON)
+#ifndef HAS_SIMD
       // Duplicate check
       int duplicationDetected = (diagonalValues1 & bit1) | (diagonalValues2 & bit2);
 
@@ -753,7 +760,7 @@ void MovePairSearch::MoveRows()
             // Mark the row in the array of the used rows
             ClearBit(rowsUsage, gettingRowId);
 
-#if !defined(__SSE2__) && !defined(__ARM_NEON)
+#ifndef HAS_SIMD
             // Set new row candidates
             rowCandidates = rowsUsage;
 #endif
@@ -762,6 +769,7 @@ void MovePairSearch::MoveRows()
             currentRowId++;
             DBG_UP();
 
+#ifdef HAS_SIMD
 #ifdef __SSE2__
             // load bitmasks for columns which will be on diagonals
             // for performance reasons load this as a row from transposed square
@@ -868,6 +876,7 @@ void MovePairSearch::MoveRows()
             rowCandidates = (mask << 1) & rowsUsage;
 #endif
 #endif // AVX2/SSE2
+#endif // HAS_SIMD
             if (!rowCandidates)
                 break;
           }
