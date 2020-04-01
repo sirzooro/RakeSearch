@@ -1,4 +1,5 @@
 #include "Square.h"
+#include <string.h>
 
 using namespace std;
 
@@ -15,21 +16,15 @@ Square::Square(int source[Rank][Rank])
 }
 
 // Конструктор копирования
-Square::Square(Square &source)
+Square::Square(const Square &source)
 {
     Initialize(source.Matrix);
 }
 
 // Инициализация внутренних структур
-void Square::Initialize(int source[Rank][Rank])
+void Square::Initialize(const int source[Rank][Rank])
 {
-    for (int rowId = 0; rowId < Rank; rowId++)
-    {
-        for (int columnId = 0; columnId < Rank; columnId++)
-        {
-            Matrix[rowId][columnId] = source[rowId][columnId];
-        }
-    }
+    memcpy(Matrix, source, sizeof(Matrix));
 }
 
 // Сброс значений внутренних переменных
@@ -45,26 +40,13 @@ void Square::Reset()
 }
 
 // Оператор сравнения
-int Square::operator==(Square &value)
+int Square::operator==(const Square &value) const
 {
-    int isEqual = 1;
-
-    for (int rowId = 0; rowId < Rank && isEqual; rowId++)
-    {
-        for (int columnId = 0; columnId < Rank && isEqual; columnId++)
-        {
-            if (Matrix[rowId][columnId] != value.Matrix[rowId][columnId])
-            {
-                isEqual = 0;
-            }
-        }
-    }
-
-    return isEqual;
+    return 0 == memcmp(Matrix, value.Matrix, sizeof(Matrix));
 }
 
 // Оператор присвоения
-Square &Square::operator=(Square &value)
+Square &Square::operator=(const Square &value)
 {
     Initialize(value.Matrix);
 
@@ -72,7 +54,7 @@ Square &Square::operator=(Square &value)
 }
 
 // Оператор вывода данных квадрата
-std::ostream &operator<<(std::ostream &os, Square &value)
+std::ostream &operator<<(std::ostream &os, const Square &value)
 {
     value.Write(os);
 
@@ -115,7 +97,7 @@ void Square::Read(std::istream &is)
 }
 
 // Запись квадрата в поток
-void Square::Write(std::ostream &os)
+void Square::Write(std::ostream &os) const
 {
     // Запись символа начала блока информации
     os << HeadToken << endl;
@@ -135,7 +117,7 @@ void Square::Write(std::ostream &os)
 }
 
 // Проверка квадрата на то, что он является диагональным латинским квадратом
-int Square::IsDiagonal()
+int Square::IsDiagonal() const
 {
     int isDiagonal = 1;
 
@@ -169,7 +151,7 @@ int Square::IsDiagonal()
 }
 
 // Проверка квадрата на то, что он является латинским квадратом
-int Square::IsLatin()
+int Square::IsLatin() const
 {
     int isLatin = 1;
 
@@ -211,7 +193,7 @@ int Square::IsLatin()
 }
 
 // Проверка ортогональности квадратов a и b
-int Square::OrthoDegree(Square a, Square b)
+int Square::OrthoDegree(const Square &a, const Square &b)
 {
     int degree = 0;           // Степерь ортогональности
     int freePair[Rank][Rank]; // Массив использования пар значений в получающемся греко-латинском квадрате
