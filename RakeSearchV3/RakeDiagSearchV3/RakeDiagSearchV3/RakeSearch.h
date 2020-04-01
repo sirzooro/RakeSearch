@@ -24,9 +24,9 @@ public:
     UT_VIRTUAL ~RakeSearch() = default;
     void Start(); // Запуск генерации квадратов
     void Reset(); // Сброс всех значений внутренних структур
-    void SetFileNames(string start, string result, string checkpoint,
-                      string temp); // Задание имен файлов параметров и контрольной точки
-    void Initialize(string start, string result, string checkpoint, string temp); // Инициализация поиска
+    void SetFileNames(const string &start, const string &result, const string &checkpoint,
+                      const string &temp); // Задание имен файлов параметров и контрольной точки
+    void Initialize(const string &start, const string &result, const string &checkpoint, const string &temp); // Инициализация поиска
 
 private:
     static const int Yes = 1;                      // Флаг "Да"
@@ -70,8 +70,12 @@ private:
     int totalPairsCount; // Общее число обнаруженных диагональных квадратов - в рамках всего поиска
     int totalSquaresWithPairs; // Общее число квадратов, к которым найден хотя бы один ортогональный
 
-    int squareA[Rank][Rank]; // Первый ДЛК возможной пары, строки в котором будут переставляться
-    int squareB[Rank][Rank]; // Второй возможный ДЛК пары, получаемый перестановкой строк
+    int squareA[Rank][Rank] ALIGNED; // Первый ДЛК возможной пары, строки в котором будут переставляться
+    int squareB[Rank][Rank] ALIGNED; // Второй возможный ДЛК пары, получаемый перестановкой строк
+    int squareA_Mask[Rank][Rank] ALIGNED; // Bitmasks for values in squareA
+#if defined(HAS_SIMD) || defined(UT_BUILD)
+    uint16_t squareA_MaskT[Rank][Rank - 1] ALIGNED; // Transposed copy of squareA_Mask
+#endif
     Square orthoSquares[OrhoSquaresCacheSize]; // Кэш для хранения квадратов, ортогональных обрабатываемому
 
     UT_VIRTUAL void PermuteRows(); // Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
@@ -82,4 +86,11 @@ private:
     void Read(std::istream &is);     // Чтение состояния поиска из потока
     void Write(std::ostream &os);    // Запись состояния поиска в поток
     void ShowSearchTotals();         // Отображение общих итогов поиска
+
+#if defined(__ARM_NEON) && !defined(__aarch64__) && defined(HAS_SIMD)
+    void transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol);
+#endif
+
+    static void CopyRow(int *__restrict dst, int *__restrict src);
+    static void SetRow(int *dst, int val);
 };

@@ -9,7 +9,7 @@ RakeSearch::RakeSearch()
 }
 
 // Задание имен файлов параметров и контрольной точки
-void RakeSearch::SetFileNames(string start, string result, string checkpoint, string temp)
+void RakeSearch::SetFileNames(const string &start, const string &result, const string &checkpoint, const string &temp)
 {
     startParametersFileName = start;
     resultFileName = result;
@@ -97,7 +97,7 @@ void RakeSearch::Reset()
 }
 
 // Инициализация поиска
-void RakeSearch::Initialize(string start, string result, string checkpoint, string temp)
+void RakeSearch::Initialize(const string &start, const string &result, const string &checkpoint, const string &temp)
 {
     fstream startFile;
     fstream checkpointFile;
