@@ -9,6 +9,7 @@
 #include <immintrin.h>
 #endif
 
+#include "Helpers.h"
 #include "boinc_api.h"
 #include "Square.h"
 
@@ -20,6 +21,7 @@ public:
     static const int Rank = Square::Rank; // Ранг обрабатываемых квадратов
 
     RakeSearch(); // Конструктор по умолчанию
+    UT_VIRTUAL ~RakeSearch() = default;
     void Start(); // Запуск генерации квадратов
     void Reset(); // Сброс всех значений внутренних структур
     void SetFileNames(string start, string result, string checkpoint,
@@ -72,9 +74,9 @@ private:
     int squareB[Rank][Rank]; // Второй возможный ДЛК пары, получаемый перестановкой строк
     Square orthoSquares[OrhoSquaresCacheSize]; // Кэш для хранения квадратов, ортогональных обрабатываемому
 
-    void PermuteRows(); // Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
-    void ProcessSquare(); // Обработка построенного первого квадрата возможной пары
-    void ProcessOrthoSquare(); // Обработка найденного ортогонального квадрата
+    UT_VIRTUAL void PermuteRows(); // Перетасовка строк заданного ДЛК в поиске ОДЛК к нему
+    UT_VIRTUAL void ProcessSquare(); // Обработка построенного первого квадрата возможной пары
+    UT_VIRTUAL void ProcessOrthoSquare(); // Обработка найденного ортогонального квадрата
     void CheckMutualOrthogonality(); // Проверка взаимной ортогональности квадратов
     void CreateCheckpoint();         // Создание контрольной точки
     void Read(std::istream &is);     // Чтение состояния поиска из потока
