@@ -1,6 +1,30 @@
 // Поиск пар диагональных латинских квадратов методом "перетасовки" строк
 
 #include "RakeSearch.h"
+#include <string.h>
+#include <type_traits>
+
+#define GetBit(bitfield, bitno) ((bitfield) & (1u << (bitno)))
+#define SetBit(bitfield, bitno) ((bitfield) |= (1u << (bitno)))
+#define ClearBit(bitfield, bitno) ((bitfield) &= ~(1u << (bitno)))
+
+#define AllBitsMask(numbits) ((1u << (numbits)) - 1)
+
+// Used = 0, Free = 1, Code now uses bits, so dedicated macros would be helpful.
+#define SetUsed(bitfield, bitno) ClearBit(bitfield, bitno)
+#define SetFree(bitfield, bitno) SetBit(bitfield, bitno)
+
+#define IsUsed(bitfield, bitno) (0 == GetBit(bitfield, bitno))
+#define IsFree(bitfield, bitno) (0 != GetBit(bitfield, bitno))
+
+#define AllFree AllBitsMask(Rank)
+
+#define GetBit01(bitfield, bitno) (GetBit(bitfield, bitno) ? 1 : 0)
+
+// Square::Empty is equal -1, all other values and non-negative.
+// CPU sets sign bit in status register automatically when executing instructions,
+// so sign check instead of value check can give faster code.
+#define IsCellEmpty(val) ((val) < 0)
 
 // Конструктор по умолчанию
 RakeSearch::RakeSearch()
@@ -44,14 +68,14 @@ void RakeSearch::Reset()
     }
 
     // Сброс значений в векторах использования элементов на диагонали
-    flagsPrimary = (1u << Rank) - 1;
-    flagsSecondary = (1u << Rank) - 1;
+    flagsPrimary = AllFree;
+    flagsSecondary = AllFree;
 
     // Сброс значений в матрицах использования элементов в столбцах и строках
     for (int i = 0; i < Rank; i++)
     {
-        flagsColumns[i] = (1u << Rank) - 1;
-        flagsRows[i] = (1u << Rank) - 1;
+        flagsColumns[i] = AllFree;
+        flagsRows[i] = AllFree;
     }
 
     // Сброс значений в кубе истории использования значений в клетках
@@ -59,7 +83,7 @@ void RakeSearch::Reset()
     {
         for (int j = 0; j < Rank; j++)
         {
-            flagsCellsHistory[i][j] = (1u << Rank) - 1;
+            flagsCellsHistory[i][j] = AllFree;
         }
     }
 
@@ -204,34 +228,29 @@ void RakeSearch::Read(istream &is)
 
         // Считывание из потока информации о задействованных значениях и истории значений
         // Считывание информации о значениях на главной диагонали
+        flagsPrimary = 0;
         for (int i = 0; i < Rank; i++)
         {
             is >> storedBit;
             if (storedBit)
             {
-                flagsPrimary |= 1u << i;
-            }
-            else
-            {
-                flagsPrimary &= ~(1u << i);
+                SetBit(flagsPrimary, i);
             }
         }
 
         // Считывание информации о значениях на побочной диагонали
+        flagsSecondary = 0;
         for (int i = 0; i < Rank; i++)
         {
             is >> storedBit;
             if (storedBit)
             {
-                flagsSecondary |= 1u << i;
-            }
-            else
-            {
-                flagsSecondary &= ~(1u << i);
+                SetBit(flagsSecondary, i);
             }
         }
 
         // Считывание информации о значениях в строках
+        memset(flagsRows, 0, sizeof(flagsRows));
         for (int i = 0; i < Rank; i++)
         {
             for (int j = 0; j < Rank; j++)
@@ -239,16 +258,13 @@ void RakeSearch::Read(istream &is)
                 is >> storedBit;
                 if (storedBit)
                 {
-                    flagsRows[i] |= 1u << j;
-                }
-                else
-                {
-                    flagsRows[i] &= ~(1u << j);
+                    SetBit(flagsRows[i], j);
                 }
             }
         }
 
         // Считывание информации о значениях в столбцах
+        memset(flagsColumns, 0, sizeof(flagsColumns));
         for (int i = 0; i < Rank; i++)
         {
             for (int j = 0; j < Rank; j++)
@@ -256,16 +272,13 @@ void RakeSearch::Read(istream &is)
                 is >> storedBit;
                 if (storedBit)
                 {
-                    flagsColumns[i] |= 1u << j;
-                }
-                else
-                {
-                    flagsColumns[i] &= ~(1u << j);
+                    SetBit(flagsColumns[i], j);
                 }
             }
         }
 
         // Считывание информации об истории значений в клетках квадрата
+        memset(flagsCellsHistory, 0, sizeof(flagsCellsHistory));
         for (int h = 0; h < Rank; h++)
         {
             for (int i = 0; i < Rank; i++)
@@ -275,11 +288,7 @@ void RakeSearch::Read(istream &is)
                     is >> storedBit;
                     if (storedBit)
                     {
-                        flagsCellsHistory[i][j] |= 1u << h;
-                    }
-                    else
-                    {
-                        flagsCellsHistory[i][j] &= ~(1u << h);
+                        SetBit(flagsCellsHistory[i][j], h);
                     }
                 }
             }
@@ -299,6 +308,53 @@ void RakeSearch::Read(istream &is)
 
     // Выставление флага инициализированности
     isInitialized = 1;
+
+    // Data loaded. Perform necessary post-loading tasks.
+    if (cellId == cellsInPath - 1)
+    {
+        // Start from WU
+        // Convert old checkpoint format to new one if used
+        int row = path[cellsInPath - 2][0], col = path[cellsInPath - 2][1];
+        if (0 != flagsCellsHistory[row][col])
+        {
+            int tmpColumns[Rank];
+            int tmpRows[Rank];
+            memcpy(tmpColumns, flagsColumns, sizeof(flagsColumns));
+            memcpy(tmpRows, flagsRows, sizeof(flagsRows));
+
+            // Convert cellsHistory into candidates
+            for (int i = cellsInPath - 1; i >= 0; --i)
+            {
+                row = path[i][0];
+                col = path[i][1];
+                int bit = 1 << squareA[row][col];
+                tmpColumns[col] |= bit;
+                tmpRows[row] |= bit;
+                flagsCellsHistory[row][col] &= tmpColumns[col] & tmpRows[row];
+
+                // Update rows/cols data for last cell in path, it is no longer set
+                if (i == cellsInPath - 1)
+                {
+                    flagsColumns[col] = tmpColumns[col];
+                    flagsRows[row] = tmpRows[row];
+                }
+            }
+        }
+    }
+    else
+    {
+        // Start from checkpoint
+        // Check if there are no cells on diagonals in path
+        for (int i = 0; i < cellsInPath; i++)
+        {
+            int row = path[i][0], col = path[i][1];
+            if ((row == col) || (row == Rank - 1 - col))
+            {
+                std::cerr << "Error: Cell on diagonal in path! R=" << row << " C=" << col << std::endl;
+                return;
+            }
+        }
+    }
 }
 
 // Запись состояния поиска в поток
@@ -344,14 +400,14 @@ void RakeSearch::Write(std::ostream &os)
     // Запись информации о значениях на главной диагонали
     for (int i = 0; i < Rank; i++)
     {
-        os << ((flagsPrimary & (1u << i)) > 0 ? 1 : 0) << " ";
+        os << GetBit01(flagsPrimary, i) << " ";
     }
     os << endl;
 
     // Запись информации о значениях на побочной диагонали
     for (int i = 0; i < Rank; i++)
     {
-        os << ((flagsSecondary & (1u << i)) > 0 ? 1 : 0) << " ";
+        os << GetBit01(flagsSecondary, i) << " ";
     }
     os << endl;
 
@@ -363,7 +419,7 @@ void RakeSearch::Write(std::ostream &os)
     {
         for (int j = 0; j < Rank; j++)
         {
-            os << ((flagsRows[i] & (1u << j)) > 0 ? 1 : 0) << " ";
+            os << GetBit01(flagsRows[i], j) << " ";
         }
         os << endl;
     }
@@ -374,7 +430,7 @@ void RakeSearch::Write(std::ostream &os)
     {
         for (int j = 0; j < Rank; j++)
         {
-            os << ((flagsColumns[i] & (1u << j)) > 0 ? 1 : 0) << " ";
+            os << GetBit01(flagsColumns[i], j) << " ";
         }
         os << endl;
     }
@@ -387,7 +443,7 @@ void RakeSearch::Write(std::ostream &os)
         {
             for (int j = 0; j < Rank; j++)
             {
-                os << ((flagsCellsHistory[i][j] & (1u << h)) > 0 ? 1 : 0) << " ";
+                os << GetBit01(flagsCellsHistory[i][j], h) << " ";
             }
             os << endl;
         }
