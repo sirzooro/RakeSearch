@@ -152,6 +152,10 @@ void RakeSearch::Initialize(const string &start, const string &result, const str
             isStartFromCheckpoint = 0;
         }
     }
+    else
+    {
+        isStartFromCheckpoint = 0;
+    }
 
     // Считывание состояния из файла стартовых параметров
     if (isStartFromCheckpoint != 1)
@@ -482,8 +486,6 @@ void RakeSearch::CreateCheckpoint()
 // Обработка найденного, возможно что ортогонального квадрата
 void RakeSearch::ProcessOrthoSquare()
 {
-    ofstream resultFile; // Поток для I/O в файл с результатами
-
     Square a(squareA); // Квадрат A как объект
     Square b(squareB); // Квадрат B как объект
 
@@ -509,6 +511,15 @@ void RakeSearch::ProcessOrthoSquare()
         if (pairsCount < OrhoSquaresCacheSize)
         {
             orthoSquares[pairsCount] = b;
+        }
+
+        // The stream for output into the results file
+        // It must be here, creation and destruction of iostream is costly!
+        ofstream resultFile;
+        resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
+        if (!resultFile.is_open())
+        {
+            std::cerr << "Error opening file!";
         }
 
         // Вывод заголовка
