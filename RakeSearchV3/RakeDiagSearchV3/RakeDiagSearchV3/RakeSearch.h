@@ -5,10 +5,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#ifndef __arm__
-#include <immintrin.h>
-#endif
-
 #include "Helpers.h"
 #include "boinc_api.h"
 #include "Square.h"
@@ -93,4 +89,6 @@ private:
 
     static void CopyRow(int *__restrict dst, int *__restrict src);
     static void SetRow(int *dst, int val);
+
+    template <typename IsKeyValueEmpty> void StartImpl(); // Actual implementation of the squares generation
 };

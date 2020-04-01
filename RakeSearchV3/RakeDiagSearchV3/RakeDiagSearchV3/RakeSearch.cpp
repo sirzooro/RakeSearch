@@ -703,192 +703,168 @@ void RakeSearch::ShowSearchTotals()
         cerr << "Error opening file!" << endl;
 }
 
-// Запуск генерации квадратов
+// Start the squares generation
 void RakeSearch::Start()
 {
-#ifdef __arm__
-    unsigned int reversedMask; // Перевёрнутая битовая маска с флагами (для ARM, команды clz!)
-#endif
-    unsigned long bitIndex; // Позиция выставленного бита в "массиве" флагов
-    unsigned int freeValuesMask; // Итоговая маска из битов - флагов занятости значений
-    unsigned int isGet; // Флаг получения нового значения для клетки
-    int cellValue;      // Новое значение для клетки
-    int oldCellValue;   // Старое значение, стоявшее в клетке
+    // Check value of keyValue and pass result as a type to StartImpl
+    if (IsCellEmpty(keyValue))
+        StartImpl<true_type>();
+    else
+        StartImpl<false_type>();
+}
 
-    int stop = 0; // Флаг достижения окончания расчёта
+// Actual implementation of the squares generation
+// Note: values on diagonal are preset in WU, so corresponding parts of code are commented out.
+// It turned out that it was quite costly to have instructions which were doing nothing.
+template <typename IsKeyValueEmpty> inline void RakeSearch::StartImpl()
+{
+    int cellValue;           // New value for the cell
+    int cellValueCandidates; // Candidates for value for the cell
+
+    // Create constant copies of used fields to speedup calculations
+    const int_fast32_t cellsInPath = this->cellsInPath;
+    const int keyValue = this->keyValue;
+    const int_fast32_t keyRowId = this->keyRowId;
+    const int_fast32_t keyColumnId = this->keyColumnId;
+
+    // Use registers for local variables instead of memory
+    int_fast32_t rowId, columnId;
+    int_fast32_t cellId = this->cellId;
+
+    // Checkpoint may be written after new ODLS is created only.
+    // Class members moved to registers above are constant in checkpoint
+    // file, so they can be set to proper values here.
+    this->rowId = path[cellsInPath - 1][0];
+    this->columnId = path[cellsInPath - 1][1];
+    this->cellId = cellsInPath - 1;
+
+    // Selection of the value for the next cell
+    // Read coordinates of the cell
+    rowId = path[cellId][0];
+    columnId = path[cellId][1];
+
+    // Generate new value for the cell (rowId, columnId)
+    // Select the value for the cell
+    // Check the i value for possibility to be written into the cell (rowId, columnId)
+    cellValueCandidates = flagsColumns[columnId] & flagsRows[rowId];
 
     if (isInitialized == Yes)
     {
-        // Подбор значений клеток квадрата
-        do
+        // Check if there are no candidates at the beginning, or if calculations are resumed from checkpoint
+        if ((cellId == cellsInPath - 1) || (0 == cellValueCandidates))
+            goto StepDown;
+
+        // Selection of the cells values
+        while (1)
         {
-            // Подбор значения для очередной клетки квадрата
-            // Считываем координаты клетки
-            rowId = path[cellId][0];
-            columnId = path[cellId][1];
-
-            // Генерируем новое значение для клетки (rowId, columnId)
-            // Сбрасываем значения переменных
-            isGet = 0;
-            cellValue = Square::Empty;
-            freeValuesMask = (1u << Rank) - 1;
-
-            // Подбираем значение для клетки
-            // Так как для 9 и 10 ранга в рамках маски workunit-а уже заданы обе диагонали, то проверку по ним - отключаем
-            // // Применяем маску главной диагонали
-            // if (rowId == columnId)
-            // {
-            // 	freeValuesMask &= flagsPrimary;
-            // }
-            //
-            // // Применяем маску побочной диагонали
-            // if (Rank - rowId - 1 == columnId)
-            // {
-            // 	freeValuesMask &= flagsSecondary;
-            // }
-
-            // Применяем маску строк, столбцов и истории значений
-            freeValuesMask &= flagsColumns[columnId] & flagsRows[rowId] & flagsCellsHistory[rowId][columnId];
-
-// Определяем минимально возможное для использования в клетке значение
-#ifdef __arm__
-            asm("rbit %1, %0" : "=r"(reversedMask) : "r"(freeValuesMask) :);
-            asm("clz %1, %0" : "=r"(bitIndex) : "r"(reversedMask) :);
-            if (bitIndex < Rank)
+            // Process the search result
+            // 1st loop (used to be "if (cellValueCandidates)" part) - handle case when at least one cell value candidate is present
+            while (1)
             {
-                cellValue = bitIndex;
-                isGet = 1;
-            }
-            else
-            {
-                isGet = 0;
-            }
-#else
-#ifdef _MSC_VER
-            isGet = _BitScanForward(&bitIndex, freeValuesMask);
-            cellValue = bitIndex;
-#else
-            bitIndex = __builtin_ffs(freeValuesMask);
-            if (bitIndex > 0)
-            {
-                isGet = 1;
-                cellValue = bitIndex - 1;
-            }
-            else
-            {
-                isGet = 0;
-            }
-#endif
-#endif
+                // Extract lowest bit set
+                int bit = (-cellValueCandidates) & cellValueCandidates;
 
-            // Обработка результата поиска
-            if (isGet)
-            {
-                // Обработка найденного нового значения
-                // Считывание текущего значения
-                oldCellValue = squareA[rowId][columnId];
-                // Запись нового значения
-                // Записываем значение в квадрат
-                squareA[rowId][columnId] = cellValue;
-                // Отмечаем значение в столбцах
-                flagsColumns[columnId] ^= 1u << cellValue;
-                // Отмечаем значение в строках
-                flagsRows[rowId] ^= 1u << cellValue;
-                // Так как для 9 и 10 ранга в рамках маски workunit-а уже заданы обе диагонали, то проверку по ним - отключаем
-                // // Отмечаем значение в диагоналях
-                // if (rowId == columnId)
-                // {
-                // 	flagsPrimary ^= 1u << cellValue;
-                // }
-                // if (rowId == Rank - 1 - columnId)
-                // {
-                // 	flagsSecondary ^= 1u << cellValue;
-                // }
-                // Отмечаем значение в истории значений клетки
-                flagsCellsHistory[rowId][columnId] ^= 1u << cellValue;
+                // Write the value into the square
+                squareA[rowId][columnId] = __builtin_ctz(bit);
 
-                // Возвращение предыдущего значения без зачистки истории (так как мы работаем с этой клеткой)
-                if (oldCellValue != Square::Empty)
-                {
-                    // Возвращаем значение в столбцы
-                    flagsColumns[columnId] |= 1u << oldCellValue;
-                    // Возвращаем значение в строки
-                    flagsRows[rowId] |= 1u << oldCellValue;
-                    // Так как для 9 и 10 ранга в рамках маски workunit-а уже заданы обе диагонали, то проверку по ним - отключаем
-                    // // Возвращаем значение в диагонали
-                    // if (rowId == columnId)
-                    // {
-                    // 	flagsPrimary |= 1u << oldCellValue;
-                    // }
-                    // if (rowId == Rank - 1 - columnId)
-                    // {
-                    // 	flagsSecondary |= 1u << oldCellValue;
-                    // }
-                }
-
-                // Обработка окончания формирования квадрата
+                // Process the finish of the square generation
                 if (cellId == cellsInPath - 1)
                 {
-                    // Обрабатываем найденный квадрат
+                    // Process the found square
                     ProcessSquare();
+
+                    // Check the finish condition of search
+                    if (!IsKeyValueEmpty::value)
+                    {
+                        // Set the flag if the terminal value is other
+                        if (squareA[keyRowId][keyColumnId] == keyValue)
+                        {
+                            break;
+                        }
+                    }
+
+                    break;
                 }
                 else
                 {
-                    // Делаем шаг вперёд
+                    // Mark the value in columns
+                    flagsColumns[columnId] &= ~bit;
+                    // Mark the value in rows
+                    flagsRows[rowId] &= ~bit;
+
+                    // Mark the value in the history of cell values
+                    flagsCellsHistory[rowId][columnId] = cellValueCandidates & ~bit;
+
+                    // Step forward
                     cellId++;
-                }
-            }
-            else
-            {
-                // Обработка факта ненахождения нового значения в клетке (rowId; columnId)
-                // Возвращаем текущее значение из квадрата в массивы
-                // Считываем текущее значение
-                cellValue = squareA[rowId][columnId];
-                // Возвращаем значение в служебные массивы
-                if (cellValue != Square::Empty)
-                {
-                    // Возвращаем значение в столбцы
-                    flagsColumns[columnId] |= 1u << cellValue;
-                    // Возвращаем значение в строки
-                    flagsRows[rowId] |= 1u << cellValue;
-                    // Так как для 9 и 10 ранга в рамках маски workunit-а уже заданы обе диагонали, то проверку по ним - отключаем
-                    // // Возвращаем значение в диагонали
-                    // if (rowId == columnId)
-                    // {
-                    // 	flagsPrimary |= 1u << cellValue;
-                    // }
-                    // if (rowId == Rank - 1 - columnId)
-                    // {
-                    // 	flagsSecondary |= 1u << cellValue;
-                    // }
-                    // Сбрасываем клетку квадрата
-                    squareA[rowId][columnId] = Square::Empty;
-                    // Зачищаем историю клетки (rowId, columnId)
-                    flagsCellsHistory[rowId][columnId] = (1u << Rank) - 1;
-                }
 
-                // Делаем шаг назад
-                cellId--;
-            }
-
-            // Проверяем условие окончания поиска
-            if (squareA[keyRowId][keyColumnId] == keyValue)
-            {
-                if (keyValue == Square::Empty)
-                {
-                    if (cellId < 0)
+                    // Check the finish condition of search
+                    if (!IsKeyValueEmpty::value)
                     {
-                        stop = Yes;
+                        // Set the flag if the terminal value is other
+                        if (squareA[keyRowId][keyColumnId] == keyValue)
+                        {
+                            break;
+                        }
+                    }
+
+                    // Selection of the value for the next cell
+                    // Read coordinates of the cell
+                    rowId = path[cellId][0];
+                    columnId = path[cellId][1];
+
+                    // Generate new value for the cell (rowId, columnId)
+                    // Select the value for the cell
+                    // Check the i value for possibility to be written into the cell (rowId, columnId)
+                    cellValueCandidates = flagsColumns[columnId] & flagsRows[rowId];
+
+                    if (!cellValueCandidates)
+                        break;
+                }
+            }
+
+            // 2nd loop (used to be "else" part) - handle case when there are no cell value candidates
+        StepDown:
+            while (1)
+            {
+                // Step backward
+                cellId--;
+
+                // Check the finish condition of search
+                if (IsKeyValueEmpty::value)
+                {
+                    // Set the flag if the terminal value is "-1" which means we must leave the cell
+                    if (cellId < 0 /*&& IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId])*/)
+                    {
+                        goto EndOfLoops;
                     }
                 }
-                else
-                {
-                    stop = Yes;
-                }
+
+                // Selection of the value for the next cell
+                // Read coordinates of the cell
+                rowId = path[cellId][0];
+                columnId = path[cellId][1];
+
+                // Process the fact of not-founding a new value in the cell (rowId; columnId)
+                // Restore the previous value from the square into arrays
+                // Read the current value
+                cellValue = squareA[rowId][columnId];
+
+                // Restore the value into auxilary arrays
+                // Restore the value into columns
+                SetFree(flagsColumns[columnId], cellValue);
+                // Restore the value into rows
+                SetFree(flagsRows[rowId], cellValue);
+
+                cellValueCandidates = flagsCellsHistory[rowId][columnId];
+
+                if (cellValueCandidates)
+                    break;
             }
-        } while (!stop);
+        }
     }
 
+EndOfLoops:
     // Вывод итогов поиска
     ShowSearchTotals();
 }
