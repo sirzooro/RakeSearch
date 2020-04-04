@@ -16,6 +16,10 @@ class RakeSearch
 public:
     static const int Rank = Square::Rank; // Ранг обрабатываемых квадратов
 
+    static_assert((Rank >= 9) && (Rank <= 16),
+        "Update RankAligned to match SIMD vector length used in PermuteRows()");
+    static const int RankAligned = 16;
+
     RakeSearch(); // Конструктор по умолчанию
     UT_VIRTUAL ~RakeSearch() = default;
     void Start(); // Запуск генерации квадратов
@@ -70,7 +74,7 @@ private:
     int squareB[Rank][Rank] ALIGNED; // Второй возможный ДЛК пары, получаемый перестановкой строк
     int squareA_Mask[Rank][Rank] ALIGNED; // Bitmasks for values in squareA
 #if defined(HAS_SIMD) || defined(UT_BUILD)
-    uint16_t squareA_MaskT[Rank][Rank - 1] ALIGNED; // Transposed copy of squareA_Mask
+    uint16_t squareA_MaskT[Rank][RankAligned] ALIGNED; // Transposed copy of squareA_Mask
 #endif
     Square orthoSquares[OrhoSquaresCacheSize]; // Кэш для хранения квадратов, ортогональных обрабатываемому
 
@@ -87,8 +91,10 @@ private:
     void transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol);
 #endif
 
-    static void CopyRow(int *__restrict dst, int *__restrict src);
-    static void SetRow(int *dst, int val);
+    static void CopyRow(int *__restrict dst, const int *__restrict src);
+    //static void SetRow(int *dst, int val);
 
     template <typename IsKeyValueEmpty> void StartImpl(); // Actual implementation of the squares generation
+
+    void GenerateSquareMasks();
 };

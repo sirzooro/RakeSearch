@@ -1,4 +1,5 @@
 #include "TestRakeSearch.h"
+#include "assert.h"
 
 // Call order:
 // Start() - generate squares
@@ -32,6 +33,16 @@ void TestRakeSearch::ProcessSquare()
 
 void TestRakeSearch::PermuteRows()
 {
+    for (int n = 0; n < Rank; ++n)
+    {
+        for (int k = 0; k < Rank; ++k)
+        {
+            int mask = 1u << squareA[n][k];
+            assert(squareA_Mask[n][k] == mask);
+            assert(squareA_MaskT[k][n] == mask);
+        }
+    }
+
     if (TestNum::Test2 == testNum)
     {
         // TODO: print calculated masks
