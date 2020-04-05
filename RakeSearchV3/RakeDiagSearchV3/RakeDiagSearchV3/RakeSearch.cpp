@@ -1249,6 +1249,8 @@ inline void RakeSearch::CopyRow(int *__restrict dst, const int *__restrict src)
 // Permute the rows of the given DLS, trying to find ODLS for it
 void RakeSearch::PermuteRows()
 {
+    static_assert(Rank <= 16, "Function needs update for Rank 17+");
+
     // Masks for rowUsage which exclude current row for rows beside 1st one.
     // This is done to prevent generation of squares which has some rows unpermuted.
     // Every such row reduces final OrthoDegree of square pair by Rank, so squares
@@ -1310,12 +1312,16 @@ void RakeSearch::PermuteRows()
 
 #if defined(__ARM_NEON) && defined(HAS_SIMD)
     // Set the powers of 2
-    const uint16_t powersOf2[8] = {1, 2, 4, 8, 16, 32, 64, 128};
+    const uint16_t powersOf2[16] = {0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0020, 0x0040, 0x0080,
+                                    0x0100, 0x0200, 0x0400, 0x0800, 0x1000, 0x2000, 0x4000, 0x8000};
 #ifdef __aarch64__
-    const uint16x8_t vPowersOf2 = vld1q_u16(powersOf2);
+    const uint16x8_t vPowersOf2_1 = vld1q_u16(powersOf2);
+    const uint16x8_t vPowersOf2_2 = vld1q_u16(powersOf2 + 8);
 #else
-    const uint16x4_t vPowersOf2Lo = vld1_u16(powersOf2);
-    const uint16x4_t vPowersOf2Hi = vld1_u16(powersOf2 + 4);
+    const uint16x4_t vPowersOf2_1 = vld1_u16(powersOf2);
+    const uint16x4_t vPowersOf2_2 = vld1_u16(powersOf2 + 4);
+    const uint16x4_t vPowersOf2_3 = vld1_u16(powersOf2 + 8);
+    static_assert(Rank <= 12, "ARM NEON code needs more vector(s) for Ranks 13+");
 #endif
 #endif
 
@@ -1527,38 +1533,52 @@ void RakeSearch::PermuteRows()
                 // load bitmasks for columns which will be on diagonals
                 // for performance reasons load this as a row from transposed square
                 // also excluse 0th element, row 0 has fixed position in square
-                uint16x8_t vCol1 = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
-                uint16x8_t vCol2 = vld1q_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][0]);
+                uint16x8_t vCol1a = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
+                uint16x8_t vCol1b = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][8]);
+
+                uint16x8_t vCol2a = vld1q_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][0]);
+                uint16x8_t vCol2b = vld1q_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][8]);
 
                 // AND loaded values with diagnonal masks
                 uint16x8_t vDiagMask1 = vdupq_n_u16(diagonalValues1);
                 uint16x8_t vDiagMask2 = vdupq_n_u16(diagonalValues2);
 
-                vCol1 = vandq_u16(vCol1, vDiagMask1);
-                vCol2 = vandq_u16(vCol2, vDiagMask2);
+                vCol1a = vandq_u16(vCol1a, vDiagMask1);
+                vCol1b = vandq_u16(vCol1b, vDiagMask1);
+
+                vCol2a = vandq_u16(vCol2a, vDiagMask2);
+                vCol2b = vandq_u16(vCol2b, vDiagMask2);
 
                 // non-zero means that number is duplicated, zero means that it is unique
                 // OR these values together first
-                vCol1 = vorrq_u16(vCol1, vCol2);
+                vCol1a = vorrq_u16(vCol1a, vCol2a);
+                vCol1b = vorrq_u16(vCol1b, vCol2b);
 
                 // check if result is zero
-                vCol1 = vceqq_u16(vCol1, vdupq_n_u16(0));
+                vCol1a = vceqq_u16(vCol1a, vdupq_n_u16(0));
+                vCol1b = vceqq_u16(vCol1b, vdupq_n_u16(0));
 
                 // create mask from vector
-                uint16x8_t v = vandq_u16(vCol1, vPowersOf2);
-                uint32_t mask = vaddvq_u64(vpaddlq_u32(vpaddlq_u16(v)));
+                vCol1a = vandq_u16(vCol1a, vPowersOf2_1);
+                vCol1b = vandq_u16(vCol1b, vPowersOf2_2);
 
-                // add one bit for 0th row, and AND result with rowsUsage
-                rowCandidates = (mask << 1) & rowsUsage & rowsUsageMasks[currentRowId];
+                vCol1a = vorrq_u16(vCol1a, vCol1b);
+
+                uint32_t mask = vaddvq_u64(vpaddlq_u32(vpaddlq_u16(vCol1a)));
+
+                // AND result with masked rowsUsage
+                rowCandidates = mask & rowsUsage & rowsUsageMasks[currentRowId];
 #else // !__aarch64__
                 // load bitmasks for columns which will be on diagonals
                 // for performance reasons load this as a row from transposed square
                 // also excluse 0th element, row 0 has fixed position in square
                 uint16x4_t vCol1a = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
                 uint16x4_t vCol1b = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][4]);
+                uint16x4_t vCol1c = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][8]);
 
                 uint16x4_t vCol2a = vld1_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][0]);
                 uint16x4_t vCol2b = vld1_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][4]);
+                uint16x4_t vCol2c = vld1_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][8]);
 
                 // AND loaded values with diagnonal masks
                 uint16x4_t vDiagMask1 = vdup_n_u16(diagonalValues1);
@@ -1566,30 +1586,36 @@ void RakeSearch::PermuteRows()
 
                 vCol1a = vand_u16(vCol1a, vDiagMask1);
                 vCol1b = vand_u16(vCol1b, vDiagMask1);
+                vCol1c = vand_u16(vCol1c, vDiagMask1);
 
                 vCol2a = vand_u16(vCol2a, vDiagMask2);
                 vCol2b = vand_u16(vCol2b, vDiagMask2);
+                vCol2c = vand_u16(vCol2c, vDiagMask2);
 
                 // non-zero means that number is duplicated, zero means that it is unique
                 // OR these values together first
                 vCol1a = vorr_u16(vCol1a, vCol2a);
                 vCol1b = vorr_u16(vCol1b, vCol2b);
+                vCol1c = vorr_u16(vCol1c, vCol2c);
 
                 // check if result is zero
                 vCol1a = vceq_u16(vCol1a, vdup_n_u16(0));
                 vCol1b = vceq_u16(vCol1b, vdup_n_u16(0));
+                vCol1c = vceq_u16(vCol1c, vdup_n_u16(0));
 
                 // create mask from vector
-                vCol1a = vand_u16(vCol1a, vPowersOf2Lo);
-                vCol1b = vand_u16(vCol1b, vPowersOf2Hi);
+                vCol1a = vand_u16(vCol1a, vPowersOf2_1);
+                vCol1b = vand_u16(vCol1b, vPowersOf2_2);
+                vCol1c = vand_u16(vCol1c, vPowersOf2_3);
 
                 vCol1a = vorr_u16(vCol1a, vCol1b);
+                vCol1a = vorr_u16(vCol1a, vCol1c);
 
                 uint64x1_t v = vpaddl_u32(vpaddl_u16(vCol1a));
                 uint32_t mask = vget_lane_u32(vreinterpret_u32_u64(v), 0);
 
-                // add one bit for 0th row, and AND result with rowsUsage
-                rowCandidates = (mask << 1) & rowsUsage & rowsUsageMasks[currentRowId];
+                // AND result with masked rowsUsage
+                rowCandidates = mask & rowsUsage & rowsUsageMasks[currentRowId];
 #endif
 #endif // AVX2/SSE2
 #endif // HAS_SIMD

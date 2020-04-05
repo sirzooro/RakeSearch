@@ -1,7 +1,8 @@
 all: tests
 
 #FLAGS = -DNO_SIMD=1
-FLAGS = -msse2
+#FLAGS = -mfloat-abi=hard -mfpu=neon
+#FLAGS = -msse2
 #FLAGS = -mssse3
 #FLAGS = -msse4.1
 #FLAGS = -mavx
