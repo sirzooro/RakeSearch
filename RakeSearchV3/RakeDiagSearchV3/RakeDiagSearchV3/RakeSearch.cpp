@@ -718,7 +718,7 @@ void RakeSearch::ProcessSquare()
         for (auto it = pathPrefixes.begin() + pathPrefixPos; it != pathPrefixes.end(); ++it)
         {
             const auto& prefix = *it;
-            bool greaterOrEqual = false;
+            bool greaterOrEqual = true;
             for (int n = 0; n < MaxPathPrefixes; ++n)
             {
                 if (prefix[n] != squareA[path[n][0]][path[n][1]])

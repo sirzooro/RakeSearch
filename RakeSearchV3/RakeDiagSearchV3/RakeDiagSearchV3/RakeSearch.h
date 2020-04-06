@@ -22,7 +22,7 @@ public:
         "Update RankAligned to match SIMD vector length used in PermuteRows()");
     static const int RankAligned = 16;
 
-    static const int MaxPathPrefixes = Rank - 0;
+    static const int MaxPathPrefixes = Rank - 1;
 
     RakeSearch(); // Конструктор по умолчанию
     UT_VIRTUAL ~RakeSearch() = default;
@@ -37,7 +37,7 @@ private:
     static const int No = 0;                       // Флаг "Нет"
     static const int MaxCellsInPath = Rank * Rank; // Максимальное число обрабатываемых клеток
     static const bool isDebug = true;              // Флаг вывода отладочной информации
-    static const int CheckpointInterval = 1000000; // Интервал создания контрольных точек
+    static const int CheckpointInterval = 1 << 20; // Интервал создания контрольных точек
     static const int OrhoSquaresCacheSize = 128; // Размер кэша для хранения квадратов, ортогональных обрабатываемому
     static const int MinOrthoMetric =
         81; // Минимальное значение характеристики ортогональности при котором пара записывается в результат
