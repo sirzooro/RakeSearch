@@ -135,8 +135,8 @@ void RakeSearch::Reset()
 // Инициализация поиска
 void RakeSearch::Initialize(const string &start, const string &result, const string &checkpoint, const string &temp)
 {
-    fstream startFile;
-    fstream checkpointFile;
+    ifstream startFile;
+    ifstream checkpointFile;
 
     // Считывание названий имен файлов
     startParametersFileName = start;
@@ -148,6 +148,11 @@ void RakeSearch::Initialize(const string &start, const string &result, const str
     // Открытие файлов со стартовыми параметрами и файла контрольной точки
     startFile.open(startParametersFileName.c_str(), std::ios_base::in);
     checkpointFile.open(checkpointFileName.c_str(), std::ios_base::in);
+
+    Read(startFile);
+    array<int, MaxPathPrefixes> tmpPrefixes;
+    GeneratePathPrefixes(tmpPrefixes, 0);
+    startFile.seekg(0);
 
     // Считывание состояния из файла контрольной точки
     if (checkpointFile.is_open())
@@ -180,6 +185,47 @@ void RakeSearch::Initialize(const string &start, const string &result, const str
     // Закрытие файлов
     startFile.close();
     checkpointFile.close();
+}
+
+void RakeSearch::GeneratePathPrefixes(array<int, MaxPathPrefixes>& tmp, int pathPos)
+{
+    if (MaxPathPrefixes == pathPos)
+    {
+        pathPrefixes.emplace_back(tmp);
+    }
+    else
+    {
+        int r = path[pathPos][0];
+        int c = path[pathPos][1];
+
+        int rh = flagsRows[r];
+        int ch = flagsColumns[c];
+        int hh = flagsCellsHistory[r][c];
+
+        int freeVals = rh & ch & hh;
+
+        for (int n = 0; n < Rank; ++n)
+        {
+            int m = 1 << n;
+            if (0 != (freeVals & m))
+            {
+                flagsRows[r] &= ~m;
+                flagsColumns[c] &= ~m;
+                flagsCellsHistory[r][c] &= ~m;
+
+                tmp[pathPos] = __builtin_ctz(m);
+
+                GeneratePathPrefixes(tmp, pathPos + 1);
+
+                flagsRows[r] |= m;
+                flagsColumns[c] |= m;
+            }
+        }
+
+        flagsRows[r] = rh;
+        flagsColumns[c] = ch;
+        flagsCellsHistory[r][c] = hh;
+    }
 }
 
 // Чтение состояния поиска из потока
@@ -549,7 +595,6 @@ void RakeSearch::ProcessOrthoSquare()
                 cout << "# ------------------------" << endl;
             }
             // Вывод информации в файл
-            resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
             if (resultFile.is_open())
             {
                 resultFile << "{" << endl;
@@ -559,7 +604,6 @@ void RakeSearch::ProcessOrthoSquare()
                 resultFile << "# ------------------------" << endl;
                 resultFile << a;
                 resultFile << "# ------------------------" << endl;
-                resultFile.close();
             }
             else
             {
@@ -578,7 +622,6 @@ void RakeSearch::ProcessOrthoSquare()
         }
 
         // Вывод информации в файл
-        resultFile.open(resultFileName.c_str(), std::ios_base::binary | std::ios_base::app);
         if (resultFile.is_open())
         {
             resultFile << b << endl;
@@ -655,6 +698,8 @@ void RakeSearch::ProcessSquare()
     // Увеличиваем счётчик найденных квадратов
     squaresCount++;
 
+    pairsCount = 0;
+
     GenerateSquareMasks();
 
     // Запуск перетасовки строк
@@ -670,10 +715,23 @@ void RakeSearch::ProcessSquare()
     if (squaresCount % CheckpointInterval == 0)
     {
         // Обновить прогресс выполнения для клиента BOINC
-        fraction_done = squaresCount / 1000000000;
-
-        if (fraction_done >= 1)
-            fraction_done = 0.999999999;
+        for (auto it = pathPrefixes.begin() + pathPrefixPos; it != pathPrefixes.end(); ++it)
+        {
+            const auto& prefix = *it;
+            bool greaterOrEqual = false;
+            for (int n = 0; n < MaxPathPrefixes; ++n)
+            {
+                if (prefix[n] != squareA[path[n][0]][path[n][1]])
+                {
+                    greaterOrEqual = prefix[n] >= squareA[path[n][0]][path[n][1]];
+                    break;
+                }
+            }
+            if (greaterOrEqual)
+                break;
+            ++pathPrefixPos;
+        }
+        fraction_done = pathPrefixPos / (double)pathPrefixes.size();
 
         boinc_fraction_done(fraction_done); // Сообщить клиенту BOINC о доле выполнения задания
 
@@ -691,6 +749,8 @@ void RakeSearch::ProcessSquare()
 
             cout << "# ------------------------" << endl;
             cout << "# Processed " << squaresCount << " squares." << endl;
+            cout << "# Done: " << pathPrefixPos << "/" << pathPrefixes.size() << " = " <<
+                fraction_done * 100.0 << "%" << endl;
             cout << "# Last processed square:" << endl;
             cout << endl;
             cout << squareToShow;
@@ -736,6 +796,9 @@ void RakeSearch::Start()
         StartImpl<true_type>();
     else
         StartImpl<false_type>();
+
+    // Вывод итогов поиска
+    ShowSearchTotals();
 }
 
 // Actual implementation of the squares generation
@@ -861,7 +924,7 @@ template <typename IsKeyValueEmpty> inline void RakeSearch::StartImpl()
                     // Set the flag if the terminal value is "-1" which means we must leave the cell
                     if (cellId < 0 /*&& IsCellEmpty(newSquare.Matrix[keyRowId][keyColumnId])*/)
                     {
-                        goto EndOfLoops;
+                        return;
                     }
                 }
 
@@ -888,10 +951,6 @@ template <typename IsKeyValueEmpty> inline void RakeSearch::StartImpl()
             }
         }
     }
-
-EndOfLoops:
-    // Вывод итогов поиска
-    ShowSearchTotals();
 }
 
 #if defined(__ARM_NEON) && !defined(__aarch64__) && defined(HAS_SIMD)
@@ -1221,31 +1280,6 @@ void RakeSearch::GenerateSquareMasks()
 #endif // __SSE2__
 }
 
-inline void RakeSearch::CopyRow(int *__restrict dst, const int *__restrict src)
-{
-    int n = 0;
-#ifdef HAS_SIMD
-#ifdef __AVX__
-    for (; n < Rank - 7; n += 8)
-    {
-        __m256i v = _mm256_loadu_si256((const __m256i *)&src[n]);
-        _mm256_storeu_si256((__m256i *)&dst[n], v);
-    }
-#endif
-#ifdef __SSE2__
-    for (; n < Rank - 3; n += 4)
-    {
-        __m128i v = _mm_loadu_si128((const __m128i *)&src[n]);
-        _mm_storeu_si128((__m128i *)&dst[n], v);
-    }
-#endif
-#endif // HAS_SIMD
-    for (; n < Rank; n++)
-    {
-        dst[n] = src[n];
-    }
-}
-
 // Permute the rows of the given DLS, trying to find ODLS for it
 void RakeSearch::PermuteRows()
 {
@@ -1391,7 +1425,7 @@ void RakeSearch::PermuteRows()
                 // Write rows into the square in correct order
                 for (int n = 0; n < Rank; ++n)
                 {
-                    CopyRow(&squareB[n][0], &squareA[currentSquareRows[n]][0]);
+                    memcpy(&squareB[n][0], &squareA[currentSquareRows[n]][0], Rank * sizeof(squareB[n][0]));
                 }
 
                 // Process the found square

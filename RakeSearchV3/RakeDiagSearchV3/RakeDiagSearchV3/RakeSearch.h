@@ -5,6 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <array>
 #include "Helpers.h"
 #include "boinc_api.h"
 #include "Square.h"
@@ -19,6 +21,8 @@ public:
     static_assert((Rank >= 9) && (Rank <= 16),
         "Update RankAligned to match SIMD vector length used in PermuteRows()");
     static const int RankAligned = 16;
+
+    static const int MaxPathPrefixes = Rank - 0;
 
     RakeSearch(); // Конструктор по умолчанию
     UT_VIRTUAL ~RakeSearch() = default;
@@ -91,10 +95,11 @@ private:
     void transposeMatrix4x4(int srcRow, int srcCol, int destRow, int destCol);
 #endif
 
-    static void CopyRow(int *__restrict dst, const int *__restrict src);
-    //static void SetRow(int *dst, int val);
-
     template <typename IsKeyValueEmpty> void StartImpl(); // Actual implementation of the squares generation
 
     void GenerateSquareMasks();
+
+    vector<array<int, MaxPathPrefixes>> pathPrefixes;
+    int pathPrefixPos = 0;
+    void GeneratePathPrefixes(array<int, MaxPathPrefixes>& tmp, int pathPos);
 };
