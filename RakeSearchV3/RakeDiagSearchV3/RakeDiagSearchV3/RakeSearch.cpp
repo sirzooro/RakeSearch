@@ -64,7 +64,9 @@ void RakeSearch::Reset()
     }
 
     memset(squareA_Mask, 0, sizeof(squareA_Mask));
+#if defined(HAS_SIMD) || defined(UT_BUILD)
     memset(squareA_MaskT, 0, sizeof(squareA_MaskT));
+#endif
 
     // Сброс значений структур генерации квадратов
     // Сброс значений, соответствующих ключевой клетке
@@ -1032,11 +1034,10 @@ void RakeSearch::GenerateSquareMasks()
 
         // Pack two 32x4 vectors into one 8x16
         v1 = _mm_packs_epi32(v1, v2);
-        v1 = _mm_packs_epi16(v1, vc0);
+        __m128i v_lut_idx = _mm_packs_epi16(v1, vc0);
         // Get mask fom LUT
-        __m128i v_lo = _mm_shuffle_epi8(vcLut, v1); // was v2
+        __m128i v_lo = _mm_shuffle_epi8(vcLut, v_lut_idx);
         // Convert vector 8x16 to 16x8
-        v1 = _mm_unpacklo_epi8(v1, vc0); // TODO use vector before packing above
         v_lo = _mm_unpacklo_epi8(v_lo, vc0);
 
         // Check for numbers >= 8, and prepare mask for them
@@ -1492,7 +1493,9 @@ void RakeSearch::PermuteRows()
                 rowCandidates = mask & rowsUsage & rowsUsageMasks[currentRowId];
 #endif // !AVX512
 
-#elif defined(__AVX__)
+// AVX causes too much CPU throttling, so any benefits from longer vectors are lost
+// and app is slower than SSE ones. Fortunately AVX2 app does not have this problem!
+/*#elif defined(__AVX__)
                 // AVX has floating-point support only, but still is useful here
 
                 // load bitmasks for columns which will be on diagonals
@@ -1526,7 +1529,7 @@ void RakeSearch::PermuteRows()
 
                 // combine masks together, and AND result with masked rowsUsage
                 rowCandidates = (maska | (maskb << 8)) & rowsUsage & rowsUsageMasks[currentRowId];
-
+*/
 #elif defined(__SSE2__)
                 // load bitmasks for columns which will be on diagonals
                 __m128i vCol1a = _mm_load_si128((const __m128i*)&squareA_MaskT[currentRowId][0]);
@@ -1566,7 +1569,6 @@ void RakeSearch::PermuteRows()
 #ifdef __aarch64__
                 // load bitmasks for columns which will be on diagonals
                 // for performance reasons load this as a row from transposed square
-                // also excluse 0th element, row 0 has fixed position in square
                 uint16x8_t vCol1a = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
                 uint16x8_t vCol1b = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][8]);
 
@@ -1605,7 +1607,6 @@ void RakeSearch::PermuteRows()
 #else // !__aarch64__
                 // load bitmasks for columns which will be on diagonals
                 // for performance reasons load this as a row from transposed square
-                // also excluse 0th element, row 0 has fixed position in square
                 uint16x4_t vCol1a = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
                 uint16x4_t vCol1b = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][4]);
                 uint16x4_t vCol1c = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][8]);

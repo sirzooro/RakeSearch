@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 #include "boinc_api.h"
 #include "Helpers.h"
 #include "RakeSearch.h"
@@ -183,20 +184,20 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (!__get_cpuid(1, &a, &b, &c, &d))
     {
         fprintf(stderr, "CPUID instruction is not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 
     if (0 == (d & bit_SSE2))
     {
         fprintf(stderr, "SSE2 instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 
 #ifdef __SSSE3__
     if (0 == (c & bit_SSSE3))
     {
         fprintf(stderr, "SSSE3 instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 #endif
 
@@ -204,7 +205,7 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (0 == (c & bit_SSE4_1))
     {
         fprintf(stderr, "SSE4.1 instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 #endif
 
@@ -212,14 +213,14 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (0 == (c & bit_AVX))
     {
         fprintf(stderr, "AVX instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 
     // AVX also needs OS support, check for it
     if (0 == (c & bit_OSXSAVE))
     {
         fprintf(stderr, "OSXSAVE instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 
     unsigned int eax, edx;
@@ -228,7 +229,7 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (0x6 != (eax & 0x6)) // XSTATE_SSE | XSTATE_YMM
     {
         fprintf(stderr, "AVX instructions are not supported by your OS!\n");
-        exit(1);
+        _exit(1);
     }
 #endif
 
@@ -237,7 +238,7 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (__get_cpuid_max(0, 0) < 7)
     {
         fprintf(stderr, "CPUID level 7 is not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 
     __cpuid_count(7, 0, a, b, c, d);
@@ -245,7 +246,7 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (0 == (b & bit_AVX2))
     {
         fprintf(stderr, "AVX2 instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 #endif
 
@@ -257,7 +258,7 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (bmibits != (b & bmibits))
     {
         fprintf(stderr, "BMI1&2 instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 #endif
 
@@ -275,14 +276,14 @@ __attribute__((constructor(101), target("no-sse"))) void CheckCpuid()
     if (avx512bits != (b & avx512bits))
     {
         fprintf(stderr, "AVX512 instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 
     // AVX512 also needs OS support, check for it
     if (0xe6 != (eax & 0xe6)) // XSTATE_SSE | XSTATE_YMM | XSTATE_OPMASK | XSTATE_ZMM | XSTATE_HI_ZMM
     {
         fprintf(stderr, "AVX512 instructions are not supported by your OS!\n");
-        exit(1);
+        _exit(1);
     }
 #endif
 }
@@ -296,7 +297,7 @@ __attribute__((constructor(101))) void CheckArmHwcap()
     if (HWCAP_NEON != (getauxval(AT_HWCAP) & HWCAP_NEON))
     {
         fprintf(stderr, "NEON instructions are not supported by your CPU!\n");
-        exit(1);
+        _exit(1);
     }
 }
 #endif
