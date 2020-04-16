@@ -5,7 +5,7 @@ all: tests
 #FLAGS = -msse2
 #FLAGS = -mssse3
 #FLAGS = -msse4.1
-#FLAGS = -mavx
+FLAGS = -mavx
 #FLAGS = -mavx2 -mbmi -mbmi2
 #FLAGS = -march=skylake-avx512
 

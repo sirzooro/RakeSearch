@@ -22,7 +22,7 @@ public:
         "Update RankAligned to match SIMD vector length used in PermuteRows()");
     static const int RankAligned = 16;
 
-    static const int MaxPathPrefixes = Rank - 1;
+    static const int MaxPathPrefixes = 9;
 
     RakeSearch(); // Конструктор по умолчанию
     UT_VIRTUAL ~RakeSearch() = default;
