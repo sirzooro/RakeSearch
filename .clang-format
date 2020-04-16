@@ -19,6 +19,7 @@ BraceWrapping:
 ColumnLimit: 120
 IncludeBlocks: Preserve
 IndentWidth: 4
+PointerAlignment: Left
 ReflowComments: false
 SortIncludes: false
 Standard: C++11

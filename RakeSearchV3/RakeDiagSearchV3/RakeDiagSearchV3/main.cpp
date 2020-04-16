@@ -22,7 +22,7 @@ using namespace std;
 static const bool isDebug = false;
 
 // Проверка существования файла
-inline bool file_exists(const std::string &name)
+inline bool file_exists(const std::string& name)
 {
     struct stat buffer;
     return (stat(name.c_str(), &buffer) == 0);
@@ -96,7 +96,7 @@ int Compute(string wu_filename, string result_filename)
     return 0;
 }
 
-int main(int argumentsCount, char *argumentsValues[])
+int main(int argumentsCount, char* argumentsValues[])
 {
     string wu_filename = "workunit.txt";
     string result_filename = "result.txt";
@@ -136,7 +136,7 @@ int main(int argumentsCount, char *argumentsValues[])
     {
         retval = Compute(resolved_in_name, resolved_out_name);
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
         std::cerr << "Compute error!\n" << e.what() << std::endl;
         //oclApp.shutdown();

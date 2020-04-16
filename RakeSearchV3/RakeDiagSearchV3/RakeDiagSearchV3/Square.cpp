@@ -16,7 +16,7 @@ Square::Square(int source[Rank][Rank])
 }
 
 // Конструктор копирования
-Square::Square(const Square &source)
+Square::Square(const Square& source)
 {
     Initialize(source.Matrix);
 }
@@ -40,13 +40,13 @@ void Square::Reset()
 }
 
 // Оператор сравнения
-int Square::operator==(const Square &value) const
+int Square::operator==(const Square& value) const
 {
     return 0 == memcmp(Matrix, value.Matrix, sizeof(Matrix));
 }
 
 // Оператор присвоения
-Square &Square::operator=(const Square &value)
+Square& Square::operator=(const Square& value)
 {
     Initialize(value.Matrix);
 
@@ -54,7 +54,7 @@ Square &Square::operator=(const Square &value)
 }
 
 // Оператор вывода данных квадрата
-std::ostream &operator<<(std::ostream &os, const Square &value)
+std::ostream& operator<<(std::ostream& os, const Square& value)
 {
     value.Write(os);
 
@@ -62,7 +62,7 @@ std::ostream &operator<<(std::ostream &os, const Square &value)
 }
 
 // Оператор считывания данных квадрата
-std::istream &operator>>(std::istream &is, Square &value)
+std::istream& operator>>(std::istream& is, Square& value)
 {
     value.Read(is);
 
@@ -70,7 +70,7 @@ std::istream &operator>>(std::istream &is, Square &value)
 }
 
 // Чтение квадрата из потока
-void Square::Read(std::istream &is)
+void Square::Read(std::istream& is)
 {
     char readedChar; // "Буфер", используемый для посимволного чтения
 
@@ -97,7 +97,7 @@ void Square::Read(std::istream &is)
 }
 
 // Запись квадрата в поток
-void Square::Write(std::ostream &os) const
+void Square::Write(std::ostream& os) const
 {
     // Запись символа начала блока информации
     os << HeadToken << endl;
@@ -193,7 +193,7 @@ int Square::IsLatin() const
 }
 
 // Проверка ортогональности квадратов a и b
-int Square::OrthoDegree(const Square &a, const Square &b)
+int Square::OrthoDegree(const Square& a, const Square& b)
 {
     int degree = 0;           // Степерь ортогональности
     int freePair[Rank][Rank]; // Массив использования пар значений в получающемся греко-латинском квадрате

@@ -42,7 +42,7 @@ RakeSearch::RakeSearch()
 }
 
 // Задание имен файлов параметров и контрольной точки
-void RakeSearch::SetFileNames(const string &start, const string &result, const string &checkpoint, const string &temp)
+void RakeSearch::SetFileNames(const string& start, const string& result, const string& checkpoint, const string& temp)
 {
     startParametersFileName = start;
     resultFileName = result;
@@ -135,7 +135,7 @@ void RakeSearch::Reset()
 }
 
 // Инициализация поиска
-void RakeSearch::Initialize(const string &start, const string &result, const string &checkpoint, const string &temp)
+void RakeSearch::Initialize(const string& start, const string& result, const string& checkpoint, const string& temp)
 {
     ifstream startFile;
     ifstream checkpointFile;
@@ -231,7 +231,7 @@ void RakeSearch::GeneratePathPrefixes(array<int, MaxPathPrefixes>& tmp, int path
 }
 
 // Чтение состояния поиска из потока
-void RakeSearch::Read(istream &is)
+void RakeSearch::Read(istream& is)
 {
     string marker;
     int rankToVerify;
@@ -422,7 +422,7 @@ void RakeSearch::Read(istream &is)
 }
 
 // Запись состояния поиска в поток
-void RakeSearch::Write(std::ostream &os)
+void RakeSearch::Write(std::ostream& os)
 {
     Square currentSquare(squareA); // Первый квадрат пары, сформированный к моменту записи
 
@@ -751,8 +751,8 @@ void RakeSearch::ProcessSquare()
 
             cout << "# ------------------------" << endl;
             cout << "# Processed " << squaresCount << " squares." << endl;
-            cout << "# Done: " << pathPrefixPos << "/" << pathPrefixes.size() << " = " <<
-                fraction_done * 100.0 << "%" << endl;
+            cout << "# Done: " << pathPrefixPos << "/" << pathPrefixes.size() << " = " << fraction_done * 100.0 << "%"
+                 << endl;
             cout << "# Last processed square:" << endl;
             cout << endl;
             cout << squareToShow;
@@ -957,20 +957,20 @@ template <typename IsKeyValueEmpty> inline void RakeSearch::StartImpl()
 
 #if defined(__ARM_NEON) && !defined(__aarch64__) && defined(HAS_SIMD)
 __attribute__((always_inline)) inline void RakeSearch::transposeMatrix4x4(int srcRow, int srcCol, int destRow,
-                                                                              int destCol)
+                                                                          int destCol)
 {
     uint16x4_t v1, v2;
-    v1 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 0][srcCol + 0]));
-    v2 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 0][srcCol + 2]));
+    v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 0][srcCol + 0]));
+    v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 0][srcCol + 2]));
     uint16x4_t v1_1 = vuzp_u16(v1, v2).val[0];
-    v1 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 1][srcCol + 0]));
-    v2 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 1][srcCol + 2]));
+    v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 1][srcCol + 0]));
+    v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 1][srcCol + 2]));
     uint16x4_t v2_1 = vuzp_u16(v1, v2).val[0];
-    v1 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 2][srcCol + 0]));
-    v2 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 2][srcCol + 2]));
+    v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 2][srcCol + 0]));
+    v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 2][srcCol + 2]));
     uint16x4_t v3_1 = vuzp_u16(v1, v2).val[0];
-    v1 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 3][srcCol + 0]));
-    v2 = vld1_u16((uint16_t *)(&squareA_Mask[srcRow + 3][srcCol + 2]));
+    v1 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 3][srcCol + 0]));
+    v2 = vld1_u16((uint16_t*)(&squareA_Mask[srcRow + 3][srcCol + 2]));
     uint16x4_t v4_1 = vuzp_u16(v1, v2).val[0];
 
     uint16x4x2_t v12_2 = vtrn_u16(v1_1, v2_1);
@@ -979,10 +979,10 @@ __attribute__((always_inline)) inline void RakeSearch::transposeMatrix4x4(int sr
     uint32x2x2_t v13_3 = vtrn_u32(vreinterpret_u32_u16(v12_2.val[0]), vreinterpret_u32_u16(v34_2.val[0]));
     uint32x2x2_t v24_3 = vtrn_u32(vreinterpret_u32_u16(v12_2.val[1]), vreinterpret_u32_u16(v34_2.val[1]));
 
-    vst1_u32((uint32_t *)(&squareA_MaskT[destRow + 0][destCol + 0]), v13_3.val[0]);
-    vst1_u32((uint32_t *)(&squareA_MaskT[destRow + 1][destCol + 0]), v24_3.val[0]);
-    vst1_u32((uint32_t *)(&squareA_MaskT[destRow + 2][destCol + 0]), v13_3.val[1]);
-    vst1_u32((uint32_t *)(&squareA_MaskT[destRow + 3][destCol + 0]), v24_3.val[1]);
+    vst1_u32((uint32_t*)(&squareA_MaskT[destRow + 0][destCol + 0]), v13_3.val[0]);
+    vst1_u32((uint32_t*)(&squareA_MaskT[destRow + 1][destCol + 0]), v24_3.val[0]);
+    vst1_u32((uint32_t*)(&squareA_MaskT[destRow + 2][destCol + 0]), v13_3.val[1]);
+    vst1_u32((uint32_t*)(&squareA_MaskT[destRow + 3][destCol + 0]), v24_3.val[1]);
 }
 #endif
 
@@ -997,21 +997,21 @@ void RakeSearch::GenerateSquareMasks()
     int n = 0;
     for (; n < Rank * Rank - 7; n += 8)
     {
-        __m256i v = _mm256_load_si256((__m256i *)(&squareA[0][0] + n));
+        __m256i v = _mm256_load_si256((__m256i*)(&squareA[0][0] + n));
         v = _mm256_sllv_epi32(_mm256_set1_epi32(1), v);
-        _mm256_store_si256((__m256i *)(&squareA_Mask[0][0] + n), v);
+        _mm256_store_si256((__m256i*)(&squareA_Mask[0][0] + n), v);
     }
     // Use SSE instruction if possible at the end
-    if ((Rank*Rank) % 8 >= 4)
+    if ((Rank * Rank) % 8 >= 4)
     {
-        __m128i v = _mm_load_si128 ((__m128i*)(&squareA[0][0] + n));
+        __m128i v = _mm_load_si128((__m128i*)(&squareA[0][0] + n));
         v = _mm_sllv_epi32(_mm_set1_epi32(1), v);
         _mm_store_si128((__m128i*)(&squareA_Mask[0][0] + n), v);
 
         n += 4;
     }
     // Process remaining elements
-    if ((Rank*Rank) % 4 > 0)
+    if ((Rank * Rank) % 4 > 0)
     {
         for (; n < Rank * Rank; n++)
         {
@@ -1025,8 +1025,9 @@ void RakeSearch::GenerateSquareMasks()
     // required. This is still faster than unvectorized code.
     const __m128i vcLut = _mm_set_epi8(128, 64, 32, 16, 8, 4, 2, 1, 128, 64, 32, 16, 8, 4, 2, 1);
     const __m128i vc0 = _mm_setzero_si128();
-    const __m128i vc8 = _mm_set1_epi16(8);  int n = 0;
-    for (; n < Rank*Rank-7; n += 8)
+    const __m128i vc8 = _mm_set1_epi16(8);
+    int n = 0;
+    for (; n < Rank * Rank - 7; n += 8)
     {
         // Load data
         __m128i v1 = _mm_load_si128((__m128i*)(&squareA[0][0] + n));
@@ -1082,29 +1083,29 @@ void RakeSearch::GenerateSquareMasks()
     // Create transposed copy of squareA_Mask if needed
 #if defined(__SSE2__) && defined(HAS_SIMD)
     __m128i v1, v2;
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[0][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[0][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[0][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[0][4]));
     __m128i v1_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[1][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[1][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[1][4]));
     __m128i v2_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[2][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[2][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[2][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[2][4]));
     __m128i v3_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[3][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[3][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[3][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[3][4]));
     __m128i v4_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[4][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[4][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[4][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[4][4]));
     __m128i v5_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[5][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[5][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[5][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[5][4]));
     __m128i v6_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[6][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[6][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[6][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[6][4]));
     __m128i v7_1 = _mm_packs_epi32(v1, v2);
-    v1 = _mm_loadu_si128((__m128i *)(&squareA_Mask[7][0]));
-    v2 = _mm_loadu_si128((__m128i *)(&squareA_Mask[7][4]));
+    v1 = _mm_loadu_si128((__m128i*)(&squareA_Mask[7][0]));
+    v2 = _mm_loadu_si128((__m128i*)(&squareA_Mask[7][4]));
     __m128i v8_1 = _mm_packs_epi32(v1, v2);
 
     __m128i v1_2 = _mm_unpacklo_epi16(v1_1, v2_1);
@@ -1134,14 +1135,14 @@ void RakeSearch::GenerateSquareMasks()
     __m128i v7_4 = _mm_unpacklo_epi64(v4_3, v8_3);
     __m128i v8_4 = _mm_unpackhi_epi64(v4_3, v8_3);
 
-    _mm_store_si128((__m128i *)(&squareA_MaskT[0][0]), v1_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[1][0]), v2_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[2][0]), v3_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[3][0]), v4_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[4][0]), v5_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[5][0]), v6_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[6][0]), v7_4);
-    _mm_store_si128((__m128i *)(&squareA_MaskT[7][0]), v8_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[0][0]), v1_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[1][0]), v2_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[2][0]), v3_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[3][0]), v4_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[4][0]), v5_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[5][0]), v6_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[6][0]), v7_4);
+    _mm_store_si128((__m128i*)(&squareA_MaskT[7][0]), v8_4);
 
     // Transpose data from last columns (excluding bottom-right part)
     for (int i = 0; i < 8; i++)
@@ -1162,29 +1163,29 @@ void RakeSearch::GenerateSquareMasks()
 #elif defined(__ARM_NEON) && defined(HAS_SIMD)
 #ifdef __aarch64__
     uint16x8_t v1, v2;
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[0][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[0][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[0][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[0][4]));
     uint16x8_t v1_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[1][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[1][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[1][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[1][4]));
     uint16x8_t v2_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[2][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[2][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[2][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[2][4]));
     uint16x8_t v3_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[3][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[3][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[3][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[3][4]));
     uint16x8_t v4_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[4][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[4][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[4][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[4][4]));
     uint16x8_t v5_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[5][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[5][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[5][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[5][4]));
     uint16x8_t v6_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[6][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[6][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[6][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[6][4]));
     uint16x8_t v7_1 = vuzp1q_u16(v1, v2);
-    v1 = vld1q_u16((uint16_t *)(&squareA_Mask[7][0]));
-    v2 = vld1q_u16((uint16_t *)(&squareA_Mask[7][4]));
+    v1 = vld1q_u16((uint16_t*)(&squareA_Mask[7][0]));
+    v2 = vld1q_u16((uint16_t*)(&squareA_Mask[7][4]));
     uint16x8_t v8_1 = vuzp1q_u16(v1, v2);
 
     uint16x8_t v1_2 = vtrn1q_u16(v1_1, v2_1);
@@ -1214,14 +1215,14 @@ void RakeSearch::GenerateSquareMasks()
     uint64x2_t v7_4 = vtrn2q_u64(vreinterpretq_u64_u32(v3_3), vreinterpretq_u64_u32(v7_3));
     uint64x2_t v8_4 = vtrn2q_u64(vreinterpretq_u64_u32(v4_3), vreinterpretq_u64_u32(v8_3));
 
-    vst1q_u64((uint64_t *)(&squareA_MaskT[0][0]), v1_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[1][0]), v2_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[2][0]), v3_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[3][0]), v4_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[4][0]), v5_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[5][0]), v6_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[6][0]), v7_4);
-    vst1q_u64((uint64_t *)(&squareA_MaskT[7][0]), v8_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[0][0]), v1_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[1][0]), v2_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[2][0]), v3_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[3][0]), v4_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[4][0]), v5_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[5][0]), v6_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[6][0]), v7_4);
+    vst1q_u64((uint64_t*)(&squareA_MaskT[7][0]), v8_4);
 
     // Transpose data from last columns (excluding bottom-right part)
     for (int i = 0; i < 8; i++)
@@ -1291,22 +1292,9 @@ void RakeSearch::PermuteRows()
     // Every such row reduces final OrthoDegree of square pair by Rank, so squares
     // with such rows are eliminated early. This also improves performance.
     const unsigned int rowsUsageMasks[RankAligned] = {
-        0xFFFF & ~0x0001,
-        0xFFFF & ~0x0002,
-        0xFFFF & ~0x0004,
-        0xFFFF & ~0x0008,
-        0xFFFF & ~0x0010,
-        0xFFFF & ~0x0020,
-        0xFFFF & ~0x0040,
-        0xFFFF & ~0x0080,
-        0xFFFF & ~0x0100,
-        0xFFFF & ~0x0200,
-        0xFFFF & ~0x0400,
-        0xFFFF & ~0x0800,
-        0xFFFF & ~0x1000,
-        0xFFFF & ~0x2000,
-        0xFFFF & ~0x4000,
-        0xFFFF & ~0x8000};
+        0xFFFF & ~0x0001, 0xFFFF & ~0x0002, 0xFFFF & ~0x0004, 0xFFFF & ~0x0008, 0xFFFF & ~0x0010, 0xFFFF & ~0x0020,
+        0xFFFF & ~0x0040, 0xFFFF & ~0x0080, 0xFFFF & ~0x0100, 0xFFFF & ~0x0200, 0xFFFF & ~0x0400, 0xFFFF & ~0x0800,
+        0xFFFF & ~0x1000, 0xFFFF & ~0x2000, 0xFFFF & ~0x4000, 0xFFFF & ~0x8000};
 
     int currentSquareRows[Rank];
     unsigned int rowsHistoryFlags[Rank];
@@ -1478,7 +1466,7 @@ void RakeSearch::PermuteRows()
 
                 // AND result with masked rowsUsage
                 rowCandidates = resultMask & rowsUsage & rowsUsageMasks[currentRowId];
-#else // !AVX512
+#else  /* !AVX512 */
                 // check if result is zero
                 vCol1 = _mm256_cmpeq_epi16(vCol1, _mm256_setzero_si256());
 
@@ -1569,11 +1557,11 @@ void RakeSearch::PermuteRows()
 #ifdef __aarch64__
                 // load bitmasks for columns which will be on diagonals
                 // for performance reasons load this as a row from transposed square
-                uint16x8_t vCol1a = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
-                uint16x8_t vCol1b = vld1q_u16((const uint16_t *)&squareA_MaskT[currentRowId][8]);
+                uint16x8_t vCol1a = vld1q_u16((const uint16_t*)&squareA_MaskT[currentRowId][0]);
+                uint16x8_t vCol1b = vld1q_u16((const uint16_t*)&squareA_MaskT[currentRowId][8]);
 
-                uint16x8_t vCol2a = vld1q_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][0]);
-                uint16x8_t vCol2b = vld1q_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][8]);
+                uint16x8_t vCol2a = vld1q_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
+                uint16x8_t vCol2b = vld1q_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][8]);
 
                 // AND loaded values with diagnonal masks
                 uint16x8_t vDiagMask1 = vdupq_n_u16(diagonalValues1);
@@ -1604,16 +1592,16 @@ void RakeSearch::PermuteRows()
 
                 // AND result with masked rowsUsage
                 rowCandidates = mask & rowsUsage & rowsUsageMasks[currentRowId];
-#else // !__aarch64__
+#else /* !__aarch64__ */
                 // load bitmasks for columns which will be on diagonals
                 // for performance reasons load this as a row from transposed square
-                uint16x4_t vCol1a = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][0]);
-                uint16x4_t vCol1b = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][4]);
-                uint16x4_t vCol1c = vld1_u16((const uint16_t *)&squareA_MaskT[currentRowId][8]);
+                uint16x4_t vCol1a = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][0]);
+                uint16x4_t vCol1b = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][4]);
+                uint16x4_t vCol1c = vld1_u16((const uint16_t*)&squareA_MaskT[currentRowId][8]);
 
-                uint16x4_t vCol2a = vld1_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][0]);
-                uint16x4_t vCol2b = vld1_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][4]);
-                uint16x4_t vCol2c = vld1_u16((const uint16_t *)&squareA_MaskT[Rank - 1 - currentRowId][8]);
+                uint16x4_t vCol2a = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][0]);
+                uint16x4_t vCol2b = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][4]);
+                uint16x4_t vCol2c = vld1_u16((const uint16_t*)&squareA_MaskT[Rank - 1 - currentRowId][8]);
 
                 // AND loaded values with diagnonal masks
                 uint16x4_t vDiagMask1 = vdup_n_u16(diagonalValues1);

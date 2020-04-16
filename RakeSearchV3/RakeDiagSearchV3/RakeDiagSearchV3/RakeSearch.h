@@ -18,8 +18,7 @@ class RakeSearch
 public:
     static const int Rank = Square::Rank; // Ранг обрабатываемых квадратов
 
-    static_assert((Rank >= 9) && (Rank <= 16),
-        "Update RankAligned to match SIMD vector length used in PermuteRows()");
+    static_assert((Rank >= 9) && (Rank <= 16), "Update RankAligned to match SIMD vector length used in PermuteRows()");
     static const int RankAligned = 16;
 
     static const int MaxPathPrefixes = 9;
@@ -28,9 +27,10 @@ public:
     UT_VIRTUAL ~RakeSearch() = default;
     void Start(); // Запуск генерации квадратов
     void Reset(); // Сброс всех значений внутренних структур
-    void SetFileNames(const string &start, const string &result, const string &checkpoint,
-                      const string &temp); // Задание имен файлов параметров и контрольной точки
-    void Initialize(const string &start, const string &result, const string &checkpoint, const string &temp); // Инициализация поиска
+    void SetFileNames(const string& start, const string& result, const string& checkpoint,
+                      const string& temp); // Задание имен файлов параметров и контрольной точки
+    void Initialize(const string& start, const string& result, const string& checkpoint,
+                    const string& temp); // Инициализация поиска
 
 private:
     static const int Yes = 1;                      // Флаг "Да"
@@ -87,8 +87,8 @@ private:
     UT_VIRTUAL void ProcessOrthoSquare(); // Обработка найденного ортогонального квадрата
     void CheckMutualOrthogonality(); // Проверка взаимной ортогональности квадратов
     void CreateCheckpoint();         // Создание контрольной точки
-    void Read(std::istream &is);     // Чтение состояния поиска из потока
-    void Write(std::ostream &os);    // Запись состояния поиска в поток
+    void Read(std::istream& is);     // Чтение состояния поиска из потока
+    void Write(std::ostream& os);    // Запись состояния поиска в поток
     void ShowSearchTotals();         // Отображение общих итогов поиска
 
 #if defined(__ARM_NEON) && !defined(__aarch64__) && defined(HAS_SIMD)
