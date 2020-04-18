@@ -1,0 +1,28 @@
+BasedOnStyle: LLVM
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: None
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+ColumnLimit: 120
+IncludeBlocks: Preserve
+IndentWidth: 4
+PointerAlignment: Left
+ReflowComments: false
+SortIncludes: false
+Standard: C++11
+TabWidth: 4
+UseTab: Never
+...

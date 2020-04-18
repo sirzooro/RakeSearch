@@ -26,7 +26,8 @@ $RECYCLE.BIN/
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -41,3 +42,12 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Files created during build
+*.o
+*.d
+*.bak
+RakeSearch/RakeSearchV3/RakeDiagSearchV3/RakeDiagSearchV3/rakesearch
+RakeSearch/RakeSearchV3/RakeDiagSearchV3/RakeDiagSearchV3/rakesearch.exe
+RakeSearch/RakeSearchV3/RakeDiagSearchV3/RakeDiagSearchV3/tests/tests
+RakeSearch/RakeSearchV3/RakeDiagSearchV3/RakeDiagSearchV3/tests/tests.exe
