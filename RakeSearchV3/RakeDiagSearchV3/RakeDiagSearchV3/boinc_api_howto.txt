@@ -1,14 +1,73 @@
-git clone https://github.com/BOINC/boinc boinc
+== Compilation of BOINC libraries: ==
 
-==
+Before each build:
+git clone https://github.com/BOINC/boinc
+(or clone once, then copy whole dir to new one)
 
+Compilation for Linux targets, in boinc/ dir:
 ./_autosetup
-./configure --disable-server --disable-client --disable-manager --prefix=/home/natalia/work/Conferences/2017_FAST/MSquares/boinc_install
-make 
-(make -j4 если просто make не работает)
+./configure  <-- this with params for given target (see below)
+make -jN  <-- build using N parallel jobs
 make install
 
-==
+./configure params for Linux targets:
+- Linux x86_64:
+CC=/root/gcc-9.3.0/bin/gcc CXX=/root/gcc-9.3.0/bin/g++ ./configure --prefix=/boinc930/linux64/ --enable-pkg-devel --enable-static --disable-shared
 
-set BOINC_DIR and use Makefile
+- Linux x86:
+CC="/root/gcc-9.3.0/bin/gcc -m32" CXX="/root/gcc-9.3.0/bin/g++ -m32" ./configure --prefix=/boinc930/linux32/ --enable-pkg-devel --enable-static --disable-shared
 
+- Linux AARCH64:
+CC=aarch64-unknown-linux-gnu-gcc CXX=aarch64-unknown-linux-gnu-g++ ./configure --build=x86_64-build_pc-linux-gnu --host=aarch64-unknown-linux-gnu --prefix=/boinc930/aarch64/ --enable-pkg-devel --enable-static --disable-shared
+
+- Linux ARMv7:
+CC=arm-unknown-linux-gnueabi-gcc CXX=arm-unknown-linux-gnueabi-g++ ./configure --build=x86_64-build_pc-linux-gnu --host=arm-unknown-linux-gnueabi --prefix=/boinc930/arm/ --enable-pkg-devel --enable-static --disable-shared
+
+- Linux ARMv7 with NEON:
+CC=arm-unknown-linux-gnueabihf-gcc CXX=arm-unknown-linux-gnueabihf-g++ ./configure --build=x86_64-build_pc-linux-gnu --host=arm-unknown-linux-gnueabihf --prefix=/boinc930/armhf/ --enable-pkg-devel --enable-static --disable-shared
+
+- Linux ARMv6:
+CC=armv6-unknown-linux-gnueabi-gcc CXX=armv6-unknown-linux-gnueabi-g++ ./configure --build=x86_64-build_pc-linux-gnu --host=armv6-unknown-linux-gnueabi --prefix=/boinc930/armv6/ --enable-pkg-devel --enable-static --disable-shared
+
+
+Compilation for MinGW targets, in boinc/lib/ dir:
+- MinGW x86_64:
+make -f Makefile.mingw BOINC_PREFIX=/boinc930/mingw64 MINGW=x86_64-w64-mingw32
+
+- MinGW x86:
+make -f Makefile.mingw BOINC_PREFIX=/boinc930/mingw32 MINGW=i686-w64-mingw32
+
+== Compilation of gcc compiler/crosscompiler: ==
+
+Building gcc multilib compiler on CentOS 7:
+
+Install 32-bit libraries, they will be required for multilib build:
+yum install libgcc.i686 glibc-devel.i686
+
+Download gcc sources and required libraries (check gcc Instalation document for details). Configure gcc in following way:
+../gcc-9.3.0/configure --prefix=/root/gcc-9.3.0 --enable-languages=c,c++ --enable-multilib
+
+Then build as usual (make, make install).
+
+Building MinGW crosscompilers on CentOS 7:
+
+Install mingw32-gcc-c++ and mingw64-gcc-c++ from EPEL repository first, to get sysroot and binutils for MinGW platforms. Then configure gcc in following way: 
+
+- MinGW x66_64:
+../gcc-9.3.0/configure --prefix=/root/gcc-9.3.0-mingw64 --build=x86_64-redhat-linux-gnu --host=x86_64-redhat-linux-gnu --with-gnu-as --with-gnu-ld --verbose --without-newlib --disable-multilib --disable-plugin --with-system-zlib --disable-nls --without-included-gettext --disable-win32-registry --enable-languages=c,c++ --enable-threads=posix --enable-libgomp --target=x86_64-w64-mingw32 --with-sysroot=/usr/x86_64-w64-mingw32/sys-root --with-gxx-include-dir=/usr/x86_64-w64-mingw32/sys-root/mingw/include/c++ --with-as=/usr/bin/x86_64-w64-mingw32-as --with-ld=/usr/bin/x86_64-w64-mingw32-ld
+
+- MinGW x66:
+../gcc-9.3.0/configure --prefix=/root/gcc-9.3.0-mingw32 --build=x86_64-redhat-linux-gnu --host=x86_64-redhat-linux-gnu --with-gnu-as --with-gnu-ld --verbose --without-newlib --disable-multilib --disable-plugin --with-system-zlib --disable-nls --without-included-gettext --disable-win32-registry --enable-languages=c,c++ --enable-threads=posix --enable-libgomp --target=i686-w64-mingw32 --with-sysroot=/usr/i686-w64-mingw32/sys-root --with-gxx-include-dir=/usr/i686-w64-mingw32/sys-root/mingw/include/c++ --with-as=/usr/bin/i686-w64-mingw32-as --with-ld=/usr/bin/i686-w64-mingw32-ld
+
+Building ARM and AARCH64 crosscompilers for Linux on CentOS 7:
+Install crosstool-NG (https://crosstool-ng.github.io/). I suggest to install latest development version by cloning its git repository.
+
+For AARCH64 target use aarch64-unknown-linux-gnu sample as a base config. Then in options change target Linux version to the lowest one and disable building of gdb.
+
+For all ARM targets use arm-unknown-linux-gnueabi sample as a base config. Then in options change target Linux version to the lowest one and disable building of gdb.
+
+For ARMv7 without NEON use config prepared as specified above.
+
+For ARMv7 with NEON additionally set "Floating point" to "hardware (FPU)".
+
+For ARMv6 additionally set "Suffix to the arch-part" to v6, and "Architecture level" to armv6.

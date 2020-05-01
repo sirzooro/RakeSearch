@@ -1,0 +1,21 @@
+<app_info>
+    <app>
+        <name>rakesearch10</name>
+        <user_friendly_name>RakeSearch for rank 10 (Opti v1.0)</user_friendly_name>
+    </app>
+    <file_info>
+        <name>rakesearch10.exe</name>
+        <executable/>
+    </file_info>
+    <app_version>
+        <app_name>rakesearch10</app_name>
+        <version_num>301</version_num>
+        <api_version>7.9.0</api_version>
+        <platform>windows_intelx86</platform>
+        <file_ref>
+            <file_name>rakesearch10.exe</file_name>
+            <main_program/>
+        </file_ref>
+    </app_version>
+</app_info>
+
